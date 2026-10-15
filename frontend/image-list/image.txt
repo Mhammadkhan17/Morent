@@ -1,0 +1,35 @@
+# Image asset map (as placed in frontend/public)
+#
+# Layout: public/asset/Car/<Brand>/  — 8 poses per car, 600x600 transparent PNG
+# Poses: front, front-3-4, front-3-4-right, side, side-right,
+#        rear, rear-3-4, rear-3-4-right
+#
+# Code usage (lib/cars.ts):
+#   imageUrl (cards, hero, detail main) = *-front-3-4.png
+#   images[] (detail gallery)           = all 8 poses, front-3-4 first
+#
+# Other assets:
+#   /asset/Payment-Logo/visa-com-logo.png        (PaymentMethod)
+#   /asset/Payment-Logo/mastercard-com-logo.png  (PaymentMethod)
+#   /asset/Payment-Logo/paypal-com-logo.png      (PaymentMethod)
+#   /asset/Payment-Logo/bitcoin-org-logo.png     (PaymentMethod)
+#   /asset/Man-Avatar/avatar.png                 (header)
+#
+# Security shield: NOT an image — lucide <ShieldCheck /> in Confirmation.jsx
+
+asset/
+  Car/
+    Jaguar/                 2026-jaguar-xf-{pose}.png
+    Koenigsegg/             2026-koenigsegg-jesko-{pose}.png
+    Mercedez-BenZ/          2027-mercedes-benz-eqs-400-4matic-suv-{pose}.png
+    Nissan-GTR/             2026-nissan-gt-r-{pose}.png
+    Rolls-Royce/            2024-rolls-royce-spectre-{pose}.png
+    Toyota-MPV/             2022-toyota-veloz-{pose}.png
+    Volkswagen-Hatchback/   2026-volkswagen-golf-{pose}.png
+  Man-Avatar/
+    avatar.png              2672x3772
+  Payment-Logo/
+    bitcoin-org-logo.png    256x256
+    mastercard-com-logo.png 256x256
+    paypal-com-logo.png     256x256
+    visa-com-logo.png       256x256
