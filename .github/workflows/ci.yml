@@ -17,6 +17,10 @@ jobs:
     defaults:
       run:
         working-directory: frontend
+    env:
+      # Route collection loads better-auth; CI has no real secrets
+      BETTER_AUTH_URL: http://localhost:3000
+      BETTER_AUTH_SECRET: ci-dummy-secret-not-used
     steps:
       - name: Checkout
         uses: actions/checkout@v5

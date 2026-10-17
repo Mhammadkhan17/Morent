@@ -3,6 +3,9 @@ import PickUpSection from './components/Pickupsection/pickupsection';
 import TopSection from './components/TopSection/TopSection';
 import { fetchCars } from '@/lib/cars-api';
 
+// Live catalogue from the API — never prerender at build (CI has no backend)
+export const dynamic = 'force-dynamic';
+
 export default async function HomePage() {
   const cars = await fetchCars();
 
