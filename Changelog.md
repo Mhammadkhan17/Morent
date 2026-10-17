@@ -201,6 +201,100 @@ Skills: `tdd` (seams proposed and **user-confirmed** before any test).
 - Gates after batch: frontend lint clean · build green · vitest 13/13 ·
   backend ruff clean · pytest **48/48**.
 
+## Vercel deployment — full story → green (2026-10-17)
+
+Skills: `deploy-to-vercel`. Research: `research/vercel-fastapi-webhooks-research.md`
+(FastAPI on Vercel GA 2026-10-15, zero-config, webhook rules). Plan (with
+phase-by-phase records + incidents): `plans/deploy/vercel-plan.md` (P0–P6;
+final state in §P2.5). Decisions locked with user: **Stripe path A** (paste test
+keys, no Marketplace), **Neon stays on the Development branch** until going live,
+**test-branch-first** deploys, one Vercel project in **services** layout.
+
+### Attempt 1 — CLI-created project (superseded)
+
+- Project `morent` created via `vercel link` in `frontend/`, env added; first
+  deploy failed on build. Two fixes carried forward from this attempt:
+  - `rootDirectory` is a **git-import** concept — irrelevant in services mode.
+  - Default `npm install` hits ERESOLVE (vitest@5 wants `@types/node ^22||>=24`,
+    repo pins `^20`) → Vercel must use **`installCommand: npm ci`**.
+- Preview came up Ready, but the user deleted this project and re-imported the
+  repo in the dashboard — Vercel auto-detected the **services** layout (one
+  project, `vercel.json` at repo root). Stale `frontend/.vercel/` link removed.
+
+### Strategy A implementation (repo changes, TDD)
+
+- **`vercel.json` (root):**
+  - `services.frontend` — nextjs, `frontend/` root, `npm ci`
+  - `services.backend` — fastapi, `backend/` root, `entrypoint: app.main:app`
+  - Rewrites in order: `/api/auth/(.*)` → frontend (**auth carve-out — without
+    it better-auth/JWKS die**), `/api/(.*)` → backend, `/(.*)` → frontend
+  - `services.frontend.bindings` → backend as **`BACKEND_URL`**; binding vars
+    are Vercel-injected at runtime — never set manually
+- **`frontend/lib/api.ts`:** `apiBase()` per-call split — server
+  (`typeof window === "undefined"`) reads `BACKEND_URL` binding (slash-trimmed,
+  localhost fallback); browser keeps `NEXT_PUBLIC_API_BASE_URL` ("" in prod →
+  same-origin rewrite). New vitest server-branch case → **14/14**.
+- **Backend (seams user-confirmed per TDD skill):** `config.frontend_url`
+  (field name chosen to match binding env `FRONTEND_URL`; pydantic default would
+  have looked for `FRONTEND_SERVICE_URL`) + `security._build_better_auth()`:
+  JWKS fetch base = `frontend_url or auth_base_url`, **`audience`/`issuer` always
+  `auth_base_url`** (public claims). `tests/test_security.py` 2 cases → **50/50**.
+- **`.vercel.env`** at repo root: paste-ready env (secrets never printed —
+  built by pipeline only). `.gitignore` gained `.vercel/` + `.vercel.env`
+  (root `.env*` pattern does **not** cover `.vercel.env` — real file, easy leak).
+- ⚠ Side incident: a failing pytest run `AttributeError` printed the full
+  `Settings` repr into terminal output (Neon password + Stripe test key visible
+  in error text) — flagged for rotation awareness if logs are shared.
+
+### Push flow (user-approved)
+
+- Branch `test` @ **`bb17932`** (7 files, +116/−8, secret-scan clean) →
+  fast-forward merge to `main` → both commits CI-green.
+
+### Failure #1 — circular service binding
+
+- Build reached "Deploying outputs", then:
+  `experimentalServicesV2 declares a circular service binding:
+  frontend -> backend -> frontend` (validator is **undocumented** — absent from
+  docs/changelog; research claim "cycles unrestricted" was wrong).
+- Fix **`7e9e895`**: backend binding removed (frontend→backend kept — the home
+  page's only server-side fetch needs it). JWKS falls back to public
+  `auth_base_url` through the already-tested path; A-ready code stays so the
+  binding is re-addable if Vercel ever lifts the restriction.
+
+### Failure #2 — backend 500 on every request
+
+- Site deployed, but `GET /api/v1/cars` → 500 `FUNCTION_INVOCATION_FAILED`.
+  Dashboard shows no traceback; **full log via CLI**:
+  `vercel logs -d <deployment> --request-id <id>` →
+  `ValidationError: database_url_unpooled Field required` at module-level
+  `Settings()` import → app never boots (no outgoing request — crash at import).
+- Two causes (mine to own):
+  1. `DATABASE_URL_UNPOOLED` was deliberately excluded from `.vercel.env`
+     ("migrations local-only" — true, but the field is **required at import**).
+  2. The three URL vars had been pasted with the `YOUR-VERCEL-ORIGIN`
+     placeholder still intact (`BETTER_AUTH_URL`, `AUTH_BASE_URL`,
+     `FRONTEND_ORIGIN`).
+
+### Fix → verification (successful deployment)
+
+- Env synced via **CLI** (values piped from `.vercel.env`, never displayed):
+  `DATABASE_URL_UNPOOLED` added; placeholder trio `rm` + re-added with
+  **`https://morent-mu-two.vercel.app`** (exact, no trailing slash). Production
+  now holds all **10** vars; secrets also in Preview (user's paste);
+  URL trio intentionally absent from Preview until a preview domain exists
+  (backend preview deploys will 500 until then — accepted, plan §P3).
+- **Vercel snapshots env per deployment → `vercel redeploy`** required after any
+  env change (standing deployments never see new values).
+- Green on **https://morent-mu-two.vercel.app**:
+  - `GET /` → 200
+  - `GET /api/v1/cars` → 200 + real Neon JSON (Koenigsegg Jesko …)
+  - `GET /api/auth/get-session` → 200, body `null` (anon session; route reaches
+    better-auth)
+  - Binding proven: function log shows `Calling Service: frontend`
+- CI green on `bb17932` + `7e9e895`. Current gates: vitest **14/14** ·
+  pytest **50/50** · ruff clean · lint clean · build green.
+
 ## Phase 0 — Groundwork (2026-10-15)
 
 - Plan written (`plans/redesign-plan.md`): staged waves, gates, install policy.
@@ -367,17 +461,27 @@ User-requested new page (explicit override of the "no new pages" polish rule):
 |------|---------|--------|
 | ESLint | `npm run lint` (in `frontend/`) | 0 errors, 0 warnings |
 | Build | `npm run build` | passes every time |
-| Frontend tests | `npm test` (vitest, in `frontend/`) | 13/13 |
+| Frontend tests | `npm test` (vitest, in `frontend/`) | 14/14 |
 | Backend lint | `uv run ruff check .` (in `backend/`) | clean |
-| Backend tests | `uv run pytest` (in `backend/`) | 48/48 |
+| Backend tests | `uv run pytest` (in `backend/`) | 50/50 |
 | Taste lint | `node .agents/skills/design-taste-frontend/scripts/lint.mjs <files>` | 0 FAIL, 0 WARN |
 | Browser QA | screenshots / inspect.mjs | not run (no browser in env); user drove manual QA locally |
 
 ## Known follow-ups (not yet done)
 
 - M6 owner dashboard + M7 customer portal (`plans/backend/Dashboard-plan.md`).
+- Deploy P3: auth round-trip on prod URL (sign-in → `GET /api/v1/me` Bearer → 200).
+- Deploy P4: point Stripe webhook at prod URL (`…/api/v1/webhooks/stripe`),
+  webhook idempotency table, whsec swap + redeploy — test flow still runs
+  through local `stripe listen`.
+- Deploy P5: Neon `prod` branch decision (still on Development branch);
+  `OWNER_EMAIL` env not yet added (needed for M6).
+- Preview deploys: 3 URL env vars absent from Preview scope → backend 500 on
+  preview until preview domain known.
 - Screenshot-based visual QA (`inspect.mjs`) when a browser is available.
 - Placeholder footer links (Community/Partnership/Privacy/Terms) need pages.
 - Search field in header is decorative (no search behavior yet).
 - Explore capacity counts are global, not faceted with other filters.
 - Decline-card path (`4000000000000002`) still a manual spot-check.
+- `Changelog.md` is tracked by git despite its header claiming local-only —
+  unresolved: revert to untracked or fix the header (user decision pending).
