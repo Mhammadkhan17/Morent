@@ -14,6 +14,9 @@ class Settings(BaseSettings):
 
     frontend_origin: str = "http://localhost:3000"
     auth_base_url: str = "http://localhost:3000"
+    # Vercel service binding to the frontend — env var FRONTEND_URL is injected
+    # by Vercel at runtime; never set it manually.
+    frontend_url: str | None = None
 
     owner_email: str = ""
 

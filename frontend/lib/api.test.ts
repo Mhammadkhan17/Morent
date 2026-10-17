@@ -100,6 +100,21 @@ describe("api request shape", () => {
     expect(url).toBe("http://localhost:8000/api/v1/health");
   });
 
+  it("uses BACKEND_URL binding on the server and trims trailing slash", async () => {
+    process.env.BACKEND_URL = "https://backend.internal/";
+    vi.stubGlobal("window", undefined);
+    const fetchMock = mockFetchOnce({ status: "ok" });
+
+    try {
+      await api.get("/health", { auth: false });
+    } finally {
+      delete process.env.BACKEND_URL;
+    }
+
+    const [url] = fetchMock.mock.calls[0] as [string];
+    expect(url).toBe("https://backend.internal/api/v1/health");
+  });
+
   it("surfaces backend detail on non-OK as ApiError", async () => {
     mockFetchOnce({ detail: "Overlap with an existing booking" }, false, 409);
 

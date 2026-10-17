@@ -1,6 +1,14 @@
 import { authClient } from "@/lib/auth-client";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+// Server: BACKEND_URL service binding (Vercel) with localhost fallback for dev.
+// Browser: same-origin path — NEXT_PUBLIC_API_BASE_URL is "" in prod so requests
+// ride the /api/* rewrite; local dev points at localhost:8000 directly.
+function apiBase(): string {
+  if (typeof window === "undefined") {
+    return (process.env.BACKEND_URL ?? "http://localhost:8000").replace(/\/$/, "");
+  }
+  return process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+}
 
 export class ApiError extends Error {
   status: number;
@@ -34,7 +42,7 @@ async function request<T>(
   if (auth) {
     Object.assign(headers, await getAuthHeaders());
   }
-  const res = await fetch(`${API_BASE}/api/v1${path}`, {
+  const res = await fetch(`${apiBase()}/api/v1${path}`, {
     method,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,

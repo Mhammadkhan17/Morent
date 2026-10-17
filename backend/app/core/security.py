@@ -5,12 +5,21 @@ from fastapi_betterauth import BetterAuth, User
 
 from app.core.config import settings
 
-_better_auth = BetterAuth(
-    settings.auth_base_url,
-    audience=settings.auth_base_url,
-    issuer=settings.auth_base_url,
-    auto_error=False,
-)
+
+def _build_better_auth() -> BetterAuth:
+    # JWKS fetch base: Vercel service binding when present, localhost otherwise.
+    # iss/aud claims must always equal the public BETTER_AUTH_URL (auth_base_url),
+    # never the internal binding URL — tokens are issued with the public origin.
+    fetch_base = (settings.frontend_url or settings.auth_base_url).rstrip("/")
+    return BetterAuth(
+        fetch_base,
+        audience=settings.auth_base_url,
+        issuer=settings.auth_base_url,
+        auto_error=False,
+    )
+
+
+_better_auth = _build_better_auth()
 
 CurrentUser = User
 
