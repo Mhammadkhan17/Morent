@@ -14,8 +14,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { FieldGroup } from "@/components/ui/field";
 import { cn } from "@/lib/utils";
 
-const ConfirmationSection = ({ formData = {}, onCheckboxChange, onSubmit }) => {
-  const [isSubmitting, setIsSubmitting] = useState(false);
+const ConfirmationSection = ({
+  formData = {},
+  onCheckboxChange,
+  onSubmit,
+  isSubmitting = false,
+}) => {
   const [termsError, setTermsError] = useState(false);
 
   const { agreedToMarketing = false, agreedToTerms = false } = formData;
@@ -27,15 +31,7 @@ const ConfirmationSection = ({ formData = {}, onCheckboxChange, onSubmit }) => {
       return;
     }
     setTermsError(false);
-
-    try {
-      setIsSubmitting(true);
-      await onSubmit();
-    } catch (error) {
-      console.error("Error saving rental data:", error);
-    } finally {
-      setIsSubmitting(false);
-    }
+    await onSubmit();
   };
 
   return (

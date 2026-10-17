@@ -15,8 +15,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatMoney } from "@/lib/cars-api";
 import { cn } from "@/lib/utils";
-import type { Car } from "@/lib/cars";
+import type { Car } from "@/lib/types";
 
 interface CatalogueCarProps {
   cars: Car[];
@@ -26,17 +27,18 @@ interface CatalogueCarProps {
 
 export const CarCard = ({ car }: { car: Car }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
+  const meta = car.imageMetadata ?? { width: 600, height: 600 };
 
   return (
     <Link
-      href={`/cars/${car._id}`}
+      href={`/cars/${car.id}`}
       className="group block h-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <Card className="flex h-full flex-col overflow-hidden transition-colors group-hover:border-primary/40">
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-2">
             <CardTitle className="text-lg">{car.name}</CardTitle>
-            {car.rating && (
+            {car.rating != null && (
               <Badge variant="secondary" className="gap-1">
                 <Star
                   aria-hidden="true"
@@ -57,8 +59,8 @@ export const CarCard = ({ car }: { car: Car }) => {
             <Image
               src={car.imageUrl}
               alt={car.name}
-              width={car.imageMetadata.width}
-              height={car.imageMetadata.height}
+              width={meta.width}
+              height={meta.height}
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
               loading="eager"
               onLoad={() => setImageLoaded(true)}
@@ -88,7 +90,7 @@ export const CarCard = ({ car }: { car: Car }) => {
         <CardFooter className="mt-auto items-end justify-between gap-2 pt-0">
           <div>
             <p className="text-lg font-semibold text-primary">
-              {car.pricePerDay}
+              {formatMoney(car.pricePerDay)}
             </p>
             <p className="text-xs text-muted-foreground">per day</p>
           </div>
@@ -124,7 +126,7 @@ const CatalogueCar = ({ cars, tag, maxVisible }: CatalogueCarProps) => {
         <>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filteredCars.slice(0, visibleCount).map((car) => (
-              <CarCard key={car._id} car={car} />
+              <CarCard key={car.id} car={car} />
             ))}
           </div>
 

@@ -3,6 +3,7 @@ import { Plus_Jakarta_Sans } from "next/font/google";
 import type { Metadata } from "next";
 import MainHeader from "./components/header";
 import { Footer } from "./components/footer";
+import { AuthProvider } from "@/lib/AuthProvider";
 import { RentalDataProvider } from "./context/RentalDataContext"; // Import the context provider
 
 const sans = Plus_Jakarta_Sans({
@@ -25,11 +26,13 @@ export default function RootLayout({
   return (
     <html lang="en" className={sans.variable}>
       <body className="font-sans antialiased">
-        <RentalDataProvider>
-          <MainHeader />
-          {children}
-          <Footer />
-        </RentalDataProvider>
+        <AuthProvider>
+          <RentalDataProvider>
+            <MainHeader />
+            {children}
+            <Footer />
+          </RentalDataProvider>
+        </AuthProvider>
       </body>
     </html>
   );

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React from "react";
 import Image from "next/image";
 import { Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -12,32 +12,35 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { formatCents } from "@/lib/cars-api";
+import type { Car, Quote } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-const parsePrice = (value) =>
-  Number(String(value ?? "").replace(/[^0-9.]/g, "")) || 0;
+interface RentalSummaryProps {
+  car: Car | null;
+  quote: Quote | null;
+  quoteError?: string;
+  isQuoting?: boolean;
+  promoCode: string;
+  isPromoApplied?: boolean;
+  onPromoCodeChange: (code: string) => void;
+  onApplyPromo: () => void;
+}
 
-const RentalSummary = ({ car }) => {
-  const [promoCode, setPromoCode] = useState("");
-  const [isPromoApplied, setIsPromoApplied] = useState(false);
-  const [promoError, setPromoError] = useState("");
-  const basePrice = parsePrice(car?.pricePerDay);
-  const [discountedPrice, setDiscountedPrice] = useState(basePrice);
-
-  const handleApplyPromoCode = () => {
-    if (promoCode.trim().toUpperCase() === "DISCOUNT10") {
-      setDiscountedPrice(Math.round(basePrice * 0.9));
-      setIsPromoApplied(true);
-      setPromoError("");
-    } else {
-      setPromoError("Invalid promo code");
-      setIsPromoApplied(false);
-    }
-  };
-
+const RentalSummary = ({
+  car,
+  quote,
+  quoteError,
+  isQuoting,
+  promoCode,
+  isPromoApplied,
+  onPromoCodeChange,
+  onApplyPromo,
+}: RentalSummaryProps) => {
   if (!car) return null;
 
   const rating = car.rating ?? 4;
+  const meta = car.imageMetadata ?? { width: 304, height: 180 };
 
   return (
     <Card>
@@ -56,8 +59,8 @@ const RentalSummary = ({ car }) => {
             <Image
               src={car.imageUrl}
               alt={car.name}
-              width={car.imageMetadata?.width ?? 304}
-              height={car.imageMetadata?.height ?? 180}
+              width={meta.width}
+              height={meta.height}
               sizes="128px"
               className="h-auto w-full object-contain"
             />
@@ -90,15 +93,25 @@ const RentalSummary = ({ car }) => {
           </div>
         </div>
 
-        {/* Price rows */}
+        {/* Price rows — server quote only */}
         <dl className="flex flex-col gap-3 text-sm">
           <div className="flex items-center justify-between">
             <dt className="text-muted-foreground">Subtotal</dt>
-            <dd className="font-medium">{car.pricePerDay}</dd>
+            <dd className="font-medium">
+              {isQuoting && !quote
+                ? "…"
+                : quote
+                  ? formatCents(quote.subtotalCents)
+                  : "—"}
+            </dd>
           </div>
           <div className="flex items-center justify-between">
-            <dt className="text-muted-foreground">Tax</dt>
-            <dd className="font-medium">$0</dd>
+            <dt className="text-muted-foreground">Discount</dt>
+            <dd className="font-medium">
+              {quote && quote.discountCents > 0
+                ? `−${formatCents(quote.discountCents)}`
+                : formatCents(0)}
+            </dd>
           </div>
         </dl>
 
@@ -112,10 +125,7 @@ const RentalSummary = ({ car }) => {
               id="promo-code"
               type="text"
               value={promoCode}
-              onChange={(event) => {
-                setPromoCode(event.target.value);
-                setPromoError("");
-              }}
+              onChange={(event) => onPromoCodeChange(event.target.value)}
               placeholder="Enter code"
               className="h-9 w-full min-w-0 sm:w-40"
             />
@@ -123,15 +133,17 @@ const RentalSummary = ({ car }) => {
               type="button"
               variant="outline"
               size="sm"
-              onClick={handleApplyPromoCode}
+              onClick={onApplyPromo}
             >
               Apply now
             </Button>
-            {isPromoApplied && <Badge variant="secondary">10% off applied</Badge>}
+            {isPromoApplied && quote && quote.discountCents > 0 && (
+              <Badge variant="secondary">Discount applied</Badge>
+            )}
           </div>
-          {promoError && (
+          {quoteError && (
             <p role="alert" className="text-sm text-destructive">
-              {promoError}
+              {quoteError}
             </p>
           )}
         </div>
@@ -141,11 +153,13 @@ const RentalSummary = ({ car }) => {
           <div>
             <p className="text-sm font-bold">Total Rental Price</p>
             <p className="text-xs text-muted-foreground">
-              Overall price and includes rental discount
+              {quote
+                ? `${quote.days} day${quote.days === 1 ? "" : "s"} · includes discount`
+                : "Select dates to see the total"}
             </p>
           </div>
           <p className="text-2xl font-bold text-primary">
-            ${discountedPrice.toFixed(2)}
+            {quote ? formatCents(quote.totalCents) : "—"}
           </p>
         </div>
       </CardContent>

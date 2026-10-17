@@ -1,9 +1,11 @@
-import { cars } from '@/lib/cars';
-import TopSection from './components/TopSection/TopSection';
-import PickUpSection from './components/Pickupsection/pickupsection';
 import CatalogueCar from './components/CatalogueCar';
+import PickUpSection from './components/Pickupsection/pickupsection';
+import TopSection from './components/TopSection/TopSection';
+import { fetchCars } from '@/lib/cars-api';
 
-export default function HomePage() {
+export default async function HomePage() {
+  const cars = await fetchCars();
+
   return (
     <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
       {/* Top Section */}

@@ -1,5 +1,4 @@
 "use client";
-import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -9,105 +8,22 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Field, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import {
-  RadioGroup,
-  RadioGroupItem,
-} from "@/components/ui/radio-group";
-import { cn } from "@/lib/utils";
+import { CreditCard, Lock, ShieldCheck } from "lucide-react";
 
-const PaymentMethods = ({ onPaymentChange }) => {
-  const [paymentMethod, setPaymentMethod] = useState("credit-card");
-  const [cardDetails, setCardDetails] = useState({
-    cardNumber: "",
-    expirationDate: "",
-    cardHolder: "",
-    cvc: "",
-  });
-
-  // Notify parent component when payment method or card details change
-  useEffect(() => {
-    if (onPaymentChange) {
-      onPaymentChange({
-        method: paymentMethod,
-        cardDetails: paymentMethod === "credit-card" ? cardDetails : {},
-      });
-    }
-  }, [paymentMethod, cardDetails, onPaymentChange]);
-
-  const handlePaymentMethodChange = (value) => {
-    setPaymentMethod(value);
-
-    // Clear card details when switching away from credit card
-    if (value !== "credit-card") {
-      setCardDetails({
-        cardNumber: "",
-        expirationDate: "",
-        cardHolder: "",
-        cvc: "",
-      });
-    }
-  };
-
-  const handleCardDetailsChange = (e) => {
-    const { id, value } = e.target;
-    setCardDetails((prevState) => ({
-      ...prevState,
-      [id]: value,
-    }));
-  };
-
-  const methods = [
+/**
+ * Step 3 shell — card/wallet details are entered securely in the
+ * Stripe Payment Element at the final step (never in this form).
+ */
+const PaymentMethod = () => {
+  const logos = [
     {
-      id: "credit-card",
-      label: "Credit Card",
-      logos: [
-        {
-          src: "/asset/Payment-Logo/visa-com-logo.png",
-          alt: "Visa",
-          width: 36,
-          height: 36,
-        },
-        {
-          src: "/asset/Payment-Logo/mastercard-com-logo.png",
-          alt: "Mastercard",
-          width: 36,
-          height: 36,
-        },
-      ],
+      src: "/asset/Payment-Logo/visa-com-logo.png",
+      alt: "Visa",
     },
     {
-      id: "paypal",
-      label: "PayPal",
-      logos: [
-        {
-          src: "/asset/Payment-Logo/paypal-com-logo.png",
-          alt: "PayPal",
-          width: 36,
-          height: 36,
-        },
-      ],
+      src: "/asset/Payment-Logo/mastercard-com-logo.png",
+      alt: "Mastercard",
     },
-    {
-      id: "bitcoin",
-      label: "Bitcoin",
-      logos: [
-        {
-          src: "/asset/Payment-Logo/bitcoin-org-logo.png",
-          alt: "Bitcoin",
-          width: 36,
-          height: 36,
-        },
-      ],
-    },
-  ];
-
-  const cardFields = [
-    { id: "cardNumber", label: "Card Number", placeholder: "Card number" },
-    { id: "expirationDate", label: "Expiration Date", placeholder: "MM / YY" },
-    { id: "cardHolder", label: "Card Holder", placeholder: "Card holder" },
-    { id: "cvc", label: "CVC", placeholder: "CVC" },
   ];
 
   return (
@@ -117,76 +33,59 @@ const PaymentMethods = ({ onPaymentChange }) => {
           <div>
             <CardTitle className="text-lg">Payment Method</CardTitle>
             <CardDescription>
-              Please select and enter your payment details
+              After you confirm the rental, a secure card form opens on this
+              page
             </CardDescription>
           </div>
           <Badge variant="secondary">Step 3 of 4</Badge>
         </div>
       </CardHeader>
 
-      <CardContent>
-        <form>
-          <RadioGroup
-            value={paymentMethod}
-            onValueChange={handlePaymentMethodChange}
-            aria-label="Payment method"
-            className="flex flex-col gap-3"
-          >
-            {methods.map(({ id, label, logos }) => (
-              <div key={id}>
-                <label
-                  htmlFor={`pay-${id}`}
-                  className={cn(
-                    "flex cursor-pointer items-center justify-between gap-4 rounded-lg border p-4 transition-colors",
-                    paymentMethod === id
-                      ? "border-primary/50 bg-primary/5"
-                      : "border-border hover:bg-accent/50"
-                  )}
-                >
-                  <span className="flex items-center gap-3">
-                    <RadioGroupItem value={id} id={`pay-${id}`} />
-                    <span className="text-sm font-medium">{label}</span>
-                  </span>
-                  <span className="flex items-center gap-3">
-                    {logos.map((logo) => (
-                      <Image
-                        key={logo.alt}
-                        src={logo.src}
-                        alt={logo.alt}
-                        width={logo.width}
-                        height={logo.height}
-                        className="h-9 w-9 rounded-md object-contain"
-                      />
-                    ))}
-                  </span>
-                </label>
-
-                {id === "credit-card" && paymentMethod === "credit-card" && (
-                  <div className="mt-3 grid grid-cols-1 gap-4 rounded-lg bg-muted p-4 sm:grid-cols-2">
-                    {cardFields.map((field) => (
-                      <Field key={field.id}>
-                        <FieldLabel htmlFor={field.id}>
-                          {field.label}
-                        </FieldLabel>
-                        <Input
-                          type="text"
-                          id={field.id}
-                          value={cardDetails[field.id]}
-                          onChange={handleCardDetailsChange}
-                          placeholder={field.placeholder}
-                          required
-                        />
-                      </Field>
-                    ))}
-                  </div>
-                )}
-              </div>
+      <CardContent className="flex flex-col gap-4">
+        <div className="flex items-center gap-4 rounded-lg border border-primary/40 bg-primary/5 p-4">
+          <CreditCard aria-hidden="true" className="size-5 shrink-0 text-primary" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold">Card & wallets</p>
+            <p className="text-sm text-muted-foreground">
+              Card, Apple Pay, Google Pay, and more — you&apos;ll enter them
+              securely at the final step.
+            </p>
+          </div>
+          <div className="hidden items-center gap-2 sm:flex">
+            {logos.map((logo) => (
+              <Image
+                key={logo.alt}
+                src={logo.src}
+                alt={logo.alt}
+                width={36}
+                height={36}
+                className="h-8 w-8 object-contain"
+              />
             ))}
-          </RadioGroup>
-        </form>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-3 rounded-lg bg-muted p-4">
+          <Lock aria-hidden="true" className="size-5 shrink-0 text-primary" />
+            <p className="text-sm text-muted-foreground">
+              Card details are entered after you press Rent now — we never
+              store them on our servers.
+            </p>
+        </div>
+
+        <div className="flex items-start gap-3 rounded-lg bg-muted p-4">
+          <ShieldCheck
+            aria-hidden="true"
+            className="size-5 shrink-0 text-primary"
+          />
+          <p className="text-sm text-muted-foreground">
+            Payments are processed securely. Card details never touch our
+            servers.
+          </p>
+        </div>
       </CardContent>
     </Card>
   );
 };
 
-export default PaymentMethods;
+export default PaymentMethod;

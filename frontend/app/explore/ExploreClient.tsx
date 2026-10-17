@@ -1,16 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { cars } from "@/lib/cars";
+import { useEffect, useMemo, useState } from "react";
 import { CarCard } from "@/app/components/CatalogueCar";
 import { Card, CardContent } from "@/components/ui/card";
 import { FieldLegend, FieldSet } from "@/components/ui/field";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Slider } from "@/components/ui/slider";
-
-const parsePrice = (value: string) =>
-  Number.parseFloat(value.replace(/[^0-9.]/g, "")) || 0;
+import { fetchCars, formatMoney } from "@/lib/cars-api";
+import type { Car } from "@/lib/types";
 
 const parseSeats = (value: string) => Number.parseInt(value, 10) || 0;
 
@@ -33,14 +32,42 @@ const CAPACITY_OPTIONS = [
 type CapacityFilter = "all" | "2" | "4" | "6" | "8+";
 
 const ExploreClient = () => {
+  const [cars, setCars] = useState<Car[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [type, setType] = useState("all");
   const [capacity, setCapacity] = useState<CapacityFilter>("all");
+  const [maxPrice, setMaxPrice] = useState(1000);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchCars()
+      .then((data) => {
+        if (cancelled) return;
+        setCars(data);
+        const prices = data.map((car) => car.pricePerDay);
+        setMaxPrice(Math.max(...prices, 1));
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setLoadError(
+            err instanceof Error ? err.message : "Failed to load cars"
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const priceBounds = useMemo(() => {
-    const prices = cars.map((car) => parsePrice(car.pricePerDay));
+    if (cars.length === 0) return { min: 0, max: 1000 };
+    const prices = cars.map((car) => car.pricePerDay);
     return { min: Math.min(...prices), max: Math.max(...prices) };
-  }, []);
-  const [maxPrice, setMaxPrice] = useState(priceBounds.max);
+  }, [cars]);
 
   const capacityCounts = useMemo(() => {
     const counts: Record<string, number> = { "2": 0, "4": 0, "6": 0, "8+": 0 };
@@ -52,21 +79,52 @@ const ExploreClient = () => {
       else if (seats >= 8) counts["8+"] += 1;
     }
     return counts;
-  }, []);
+  }, [cars]);
 
   const filtered = useMemo(
     () =>
       cars.filter((car) => {
         const seats = parseSeats(car.seatingCapacity);
-        const price = parsePrice(car.pricePerDay);
         const typeOk = type === "all" || car.type === type;
         const capacityOk =
           capacity === "all" ||
           (capacity === "8+" ? seats >= 8 : seats === Number(capacity));
-        return typeOk && capacityOk && price <= maxPrice;
+        return typeOk && capacityOk && car.pricePerDay <= maxPrice;
       }),
-    [type, capacity, maxPrice]
+    [cars, type, capacity, maxPrice]
   );
+
+  if (isLoading) {
+    return (
+      <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <h1 className="mb-6 text-2xl font-bold">Explore cars</h1>
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <Card key={i}>
+              <CardContent className="p-6">
+                <Skeleton className="mb-4 h-40 w-full" />
+                <Skeleton className="mb-2 h-5 w-32" />
+                <Skeleton className="h-4 w-20" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <h1 className="mb-6 text-2xl font-bold">Explore cars</h1>
+        <Card>
+          <CardContent className="p-10 text-center text-destructive">
+            {loadError}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -133,7 +191,7 @@ const ExploreClient = () => {
               <FieldLegend className="flex w-full items-center justify-between">
                 <span>Price</span>
                 <span className="text-sm font-semibold text-primary">
-                  ${maxPrice}
+                  {formatMoney(maxPrice)}
                 </span>
               </FieldLegend>
               <Slider
@@ -145,8 +203,8 @@ const ExploreClient = () => {
                 aria-label="Maximum price per day"
               />
               <div className="flex justify-between text-xs text-muted-foreground">
-                <span>${priceBounds.min}</span>
-                <span>${priceBounds.max}</span>
+                <span>{formatMoney(priceBounds.min)}</span>
+                <span>{formatMoney(priceBounds.max)}</span>
               </div>
             </FieldSet>
           </CardContent>
@@ -166,7 +224,7 @@ const ExploreClient = () => {
           ) : (
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
               {filtered.map((car) => (
-                <CarCard key={car._id} car={car} />
+                <CarCard key={car.id} car={car} />
               ))}
             </div>
           )}

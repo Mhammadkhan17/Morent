@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { BellDot, Heart, Menu, Search, Settings } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   InputGroup,
@@ -17,6 +16,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import Logo from "./logo";
+import AuthArea from "./AuthArea";
 
 const navLinks = [
   { label: "Explore", href: "/explore" },
@@ -85,10 +85,7 @@ const MainHeader = () => {
             ))}
           </div>
 
-          <Avatar className="size-9">
-            <AvatarImage src="/asset/Man-Avatar/avatar.png" alt="Your profile" />
-            <AvatarFallback>M</AvatarFallback>
-          </Avatar>
+          <AuthArea />
 
           <Sheet>
             <SheetTrigger asChild>

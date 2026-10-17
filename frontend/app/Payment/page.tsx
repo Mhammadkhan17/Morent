@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useCallback, Suspense } from "react";
+import React, { useEffect, useMemo, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -19,7 +19,12 @@ import Confirmation from "./Confirmation";
 import RentalSummary from "./RentalSummary";
 import BillingInfo from "./BillingInfo";
 import RentalInfo from "./RentalInfo";
-import { getCarById } from "@/lib/cars";
+import PayPanel from "./PayPanel";
+import { fetchCar, formatCents } from "@/lib/cars-api";
+import { createBooking, fetchQuote } from "@/lib/bookings";
+import type { Car, Quote } from "@/lib/types";
+import { useAuth } from "@/lib/AuthProvider";
+import { ApiError } from "@/lib/api";
 
 interface FormData {
   billingInfo: {
@@ -40,15 +45,6 @@ interface FormData {
       time: string;
     };
   };
-  paymentMethod: {
-    method: string;
-    cardDetails: {
-      cardNumber: string;
-      expirationDate: string;
-      cardHolder: string;
-      cvc: string;
-    };
-  };
   agreedToMarketing: boolean;
   agreedToTerms: boolean;
 }
@@ -60,8 +56,26 @@ interface NestedObject {
 const PaymentContent = () => {
   const searchParams = useSearchParams();
   const carId = searchParams.get("carId");
-  const selectedCar = carId ? getCarById(carId) ?? null : null;
-  const [confirmationMessage, setConfirmationMessage] = useState("");
+  const [selectedCar, setSelectedCar] = useState<Car | null>(null);
+  const [carLoading, setCarLoading] = useState(() => Boolean(carId));
+  const [statusMessage, setStatusMessage] = useState("");
+  const [quote, setQuote] = useState<Quote | null>(null);
+  const [quoteError, setQuoteError] = useState("");
+  const [isQuoting, setIsQuoting] = useState(false);
+  const [promoInput, setPromoInput] = useState("");
+  const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const { user, isLoading } = useAuth();
+
+  useEffect(() => {
+    if (isLoading || user) return;
+    const next = encodeURIComponent(
+      `${window.location.pathname}${window.location.search}`
+    );
+    window.location.replace(`/login?next=${next}`);
+  }, [isLoading, user]);
 
   const [formData, setFormData] = useState<FormData>({
     billingInfo: {
@@ -82,18 +96,79 @@ const PaymentContent = () => {
         time: "",
       },
     },
-    paymentMethod: {
-      method: "",
-      cardDetails: {
-        cardNumber: "",
-        expirationDate: "",
-        cardHolder: "",
-        cvc: "",
-      },
-    },
     agreedToMarketing: false,
     agreedToTerms: false,
   });
+
+  useEffect(() => {
+    if (!carId) return;
+    let cancelled = false;
+    fetchCar(carId)
+      .then((car) => {
+        if (!cancelled) setSelectedCar(car);
+      })
+      .catch(() => {
+        if (!cancelled) setSelectedCar(null);
+      })
+      .finally(() => {
+        if (!cancelled) setCarLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [carId]);
+
+  const canQuote = useMemo(() => {
+    const { pickup, dropoff } = formData.rentalInfo;
+    return Boolean(
+      carId &&
+        pickup.date &&
+        pickup.time &&
+        pickup.location &&
+        dropoff.date &&
+        dropoff.time &&
+        dropoff.location
+    );
+  }, [carId, formData.rentalInfo]);
+
+  // Re-quote (debounced) whenever priced fields change — server is the only source of money
+  useEffect(() => {
+    if (!canQuote || !carId) return;
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      setIsQuoting(true);
+      setQuoteError("");
+      try {
+        const result = await fetchQuote({
+          carId,
+          pickup: formData.rentalInfo.pickup,
+          dropoff: formData.rentalInfo.dropoff,
+          promoCode: appliedPromo,
+        });
+        if (!cancelled) setQuote(result);
+      } catch (err) {
+        if (!cancelled) {
+          setQuote(null);
+          if (err instanceof ApiError && Array.isArray(err.message)) {
+            setQuoteError("Invalid quote request");
+          } else {
+            setQuoteError(
+              err instanceof ApiError ? String(err.message) : "Quote failed"
+            );
+          }
+        }
+      } finally {
+        if (!cancelled) setIsQuoting(false);
+      }
+    }, 400);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [carId, formData.rentalInfo, appliedPromo, canQuote]);
+
+  const activeQuote = canQuote ? quote : null;
+  const activeQuoteError = canQuote ? quoteError : "";
 
   const handleInputChange = (
     section: keyof FormData,
@@ -117,6 +192,8 @@ const PaymentContent = () => {
         [section]: sectionData,
       };
     });
+    // Priced field change invalidates any open checkout session
+    setClientSecret(null);
   };
 
   const handleCheckboxChange = (field: keyof FormData, value: boolean) => {
@@ -126,62 +203,88 @@ const PaymentContent = () => {
     }));
   };
 
-  const handlePaymentChange = useCallback(
-    (data: {
-      method: string;
-      cardDetails?: {
-        cardNumber: string;
-        expirationDate: string;
-        cardHolder: string;
-        cvc: string;
-      };
-    }) => {
-      setFormData((prevData) => ({
-        ...prevData,
-        paymentMethod: {
-          method: data.method,
-          cardDetails:
-            data.method === "credit-card" && data.cardDetails
-              ? data.cardDetails
-              : prevData.paymentMethod.cardDetails,
-        },
-      }));
-    },
-    []
-  );
+  const handleApplyPromo = () => {
+    const code = promoInput.trim().toUpperCase();
+    setAppliedPromo(code || null);
+    setClientSecret(null);
+  };
+
+  const handlePromoCodeChange = (code: string) => {
+    setPromoInput(code);
+    if (!code.trim()) {
+      setAppliedPromo(null);
+    }
+  };
 
   const handleSubmit = async () => {
-    if (!selectedCar) {
-      setConfirmationMessage(
+    if (!selectedCar || !carId) {
+      setStatusMessage(
         "Please go back and select a car before confirming."
       );
       return;
     }
-
-    try {
-      const response = await fetch("/api/saveRentalData", {
-        method: "POST",
-        body: JSON.stringify({
-          ...formData,
-          carDetails: selectedCar,
-        }),
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      setConfirmationMessage(
-        response.ok
-          ? "Your rental has been confirmed!"
-          : "Something went wrong, please try again."
+    if (!canQuote || !activeQuote) {
+      setSubmitError(
+        "Please fill in pickup and dropoff details before confirming."
       );
-    } catch (error) {
-      console.error("Error:", error);
-      setConfirmationMessage("Something went wrong, please try again.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      const session = await createBooking({
+        carId,
+        pickup: formData.rentalInfo.pickup,
+        dropoff: formData.rentalInfo.dropoff,
+        promoCode: appliedPromo,
+        billingName: formData.billingInfo.name,
+        billingPhone: formData.billingInfo.phone,
+        billingAddress: formData.billingInfo.address,
+        billingCity: formData.billingInfo.city,
+        agreedToTerms: formData.agreedToTerms,
+        agreedToMarketing: formData.agreedToMarketing,
+      });
+      setClientSecret(session.clientSecret);
+      // Scroll Stripe card form into view after booking is created
+      window.setTimeout(() => {
+        document
+          .querySelector("[data-pay-panel]")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 50);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        setSubmitError(
+          "This car is already booked for the selected dates. Please pick different dates or another car."
+        );
+      } else if (err instanceof ApiError && err.status === 401) {
+        setSubmitError(
+          "You need to be signed in to book. Please log in and try again."
+        );
+      } else if (err instanceof ApiError && err.status === 422) {
+        setSubmitError(
+          typeof err.message === "string"
+            ? err.message
+            : "Please check the form fields and try again."
+        );
+      } else {
+        setSubmitError("Something went wrong creating your booking. Please try again.");
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const messageIsSuccess = confirmationMessage === "Your rental has been confirmed!";
+  const messageIsSuccess =
+    statusMessage === "Your rental has been confirmed!";
+
+  if (isLoading || !user) {
+    return <PaymentFallback />;
+  }
+
+  if (carLoading) {
+    return <PaymentFallback />;
+  }
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
@@ -199,17 +302,42 @@ const PaymentContent = () => {
               handleInputChange("rentalInfo", field, value)
             }
           />
-          <PaymentMethods onPaymentChange={handlePaymentChange} />
-          <Confirmation
-            formData={formData}
-            onCheckboxChange={handleCheckboxChange}
-            onSubmit={handleSubmit}
-          />
+          <PaymentMethods />
+          {clientSecret ? (
+            <PayPanel
+              clientSecret={clientSecret}
+              totalLabel={activeQuote ? formatCents(activeQuote.totalCents) : ""}
+              onClosed={() => setClientSecret(null)}
+            />
+          ) : (
+            <Confirmation
+              formData={formData}
+              onCheckboxChange={handleCheckboxChange}
+              onSubmit={handleSubmit}
+              isSubmitting={isSubmitting}
+            />
+          )}
+          {submitError && (
+            <Alert variant="destructive">
+              <CircleX aria-hidden="true" />
+              <AlertDescription>{submitError}</AlertDescription>
+            </Alert>
+          )}
         </div>
 
         <div className="w-full lg:sticky lg:top-6 lg:w-[400px] xl:w-[440px]">
           {selectedCar ? (
-            <RentalSummary key={selectedCar._id} car={selectedCar} />
+            <RentalSummary
+              key={selectedCar.id}
+              car={selectedCar}
+              quote={activeQuote}
+              quoteError={activeQuoteError}
+              isQuoting={isQuoting}
+              promoCode={promoInput}
+              isPromoApplied={Boolean(appliedPromo)}
+              onPromoCodeChange={handlePromoCodeChange}
+              onApplyPromo={handleApplyPromo}
+            />
           ) : (
             <Card>
               <CardHeader>
@@ -231,14 +359,17 @@ const PaymentContent = () => {
         </div>
       </div>
 
-      {confirmationMessage && (
-        <Alert className="mt-6" variant={messageIsSuccess ? "default" : "destructive"}>
+      {statusMessage && (
+        <Alert
+          className="mt-6"
+          variant={messageIsSuccess ? "default" : "destructive"}
+        >
           {messageIsSuccess ? (
             <CircleCheck aria-hidden="true" />
           ) : (
             <CircleX aria-hidden="true" />
           )}
-          <AlertDescription>{confirmationMessage}</AlertDescription>
+          <AlertDescription>{statusMessage}</AlertDescription>
         </Alert>
       )}
     </div>

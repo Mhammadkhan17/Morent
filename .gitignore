@@ -6,6 +6,25 @@ research/
 opencode.jsonc
 skills-lock.json
 
+# Secrets / credentials (never commit)
+.env*
+!.env.example
+*.pem
+*.key
+credentials.json
+.stripe/
+
+# Python / backend (uv + pytest + ruff)
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+.coverage
+htmlcov/
+
 # Dependencies
 node_modules/
 .pnp
@@ -32,6 +51,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+stripe-listen.log
 
 # OS / editor noise
 .DS_Store
