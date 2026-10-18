@@ -8,7 +8,7 @@ from sqlmodel import select
 from app.core.config import settings
 from app.core.db import get_session
 from app.models import Booking, Payment
-from app.services.booking_status import IllegalTransition, apply
+from app.services.booking_status import IllegalTransition, transition
 
 webhooks_router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 
@@ -92,7 +92,9 @@ async def stripe_webhook(request: Request, session: SessionDep) -> dict[str, str
         ):
             # Idempotent: already confirmed → no-op
             if booking.status == "pending":
-                apply(booking, "confirmed")
+                await transition(
+                    session, booking, "confirmed", actor="webhook"
+                )
             if payment_status in ("paid", "no_payment_required"):
                 await _upsert_payment(
                     session,
@@ -103,7 +105,7 @@ async def stripe_webhook(request: Request, session: SessionDep) -> dict[str, str
                 )
         elif event_type == "checkout.session.async_payment_failed":
             if booking.status == "pending":
-                apply(booking, "failed")
+                await transition(session, booking, "failed", actor="webhook")
             await _upsert_payment(
                 session,
                 booking,
@@ -113,7 +115,7 @@ async def stripe_webhook(request: Request, session: SessionDep) -> dict[str, str
             )
         elif event_type == "checkout.session.expired":
             if booking.status == "pending":
-                apply(booking, "cancelled")
+                await transition(session, booking, "cancelled", actor="webhook")
     except IllegalTransition:
         # Late/duplicate events on non-pending bookings are ignored
         await session.rollback()

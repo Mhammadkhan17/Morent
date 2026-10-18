@@ -4,6 +4,9 @@ import { Pool } from "pg";
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+// Promoted to "owner" at signup (case-insensitive). Empty = nobody auto-promoted
+// (seed manually instead — see Dashboard-plan M6 checklist).
+const ownerEmail = process.env.OWNER_EMAIL?.trim().toLowerCase() ?? "";
 
 export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL,
@@ -29,5 +32,30 @@ export const auth = betterAuth({
         },
       }
     : {}),
+  user: {
+    additionalFields: {
+      role: {
+        type: "string",
+        required: false,
+        defaultValue: "customer",
+        input: false, // server-owned — clients can never set their own role
+      },
+    },
+  },
+  databaseHooks: {
+    user: {
+      create: {
+        before: async (user) => ({
+          data: {
+            ...user,
+            role:
+              ownerEmail && user.email?.trim().toLowerCase() === ownerEmail
+                ? "owner"
+                : "customer",
+          },
+        }),
+      },
+    },
+  },
   plugins: [jwt()],
 });

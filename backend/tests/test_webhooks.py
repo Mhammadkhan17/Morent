@@ -176,3 +176,28 @@ async def test_unknown_session_acked_without_side_effects(client, seeded_car):
         "/api/v1/webhooks/stripe", content=payload, headers=headers
     )
     assert resp.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_completed_creates_customer_and_owner_notifications(
+    client, seeded_car, db_session
+):
+    from sqlmodel import select
+
+    from app.models import Notification, UserRow
+
+    db_session.add(UserRow(id="owner_1", email="o@x.com", role="owner"))
+    await db_session.commit()
+    await _seed_pending_booking(db_session, "cs_test_9")
+    event = _event("cs_test_9", "checkout.session.completed", payment_status="paid")
+    payload, headers = _post(client, event)
+    resp = await client.post(
+        "/api/v1/webhooks/stripe", content=payload, headers=headers
+    )
+    assert resp.status_code == 200
+
+    notifications = list((await db_session.exec(select(Notification))).all())
+    by_user = {n.user_id: n for n in notifications}
+    assert set(by_user) == {"user_test_1", "owner_1"}
+    assert by_user["user_test_1"].type == "booking_confirmed"
+    assert by_user["user_test_1"].title == "Booking confirmed"

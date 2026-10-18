@@ -2,8 +2,11 @@ from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
 from fastapi_betterauth import BetterAuth, User
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
+from app.core.db import get_session
+from app.models import UserRow
 
 
 def _build_better_auth() -> BetterAuth:
@@ -44,3 +47,21 @@ async def get_current_user(
 
 CurrentUserDep = Annotated[User, Depends(get_current_user)]
 OptionalUserDep = Annotated[User | None, Depends(get_optional_user)]
+
+SessionDep = Annotated[AsyncSession, Depends(get_session)]
+
+
+async def require_owner(user: CurrentUserDep, session: SessionDep) -> User:
+    """Owner gate: role is re-read from the DB on every request (never trusted
+    from a JWT claim), so promoting/demoting takes effect immediately."""
+    user_id = user.get("sub", "") if user else ""
+    row = await session.get(UserRow, user_id) if user_id else None
+    if row is None or row.role != "owner":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Owner access required",
+        )
+    return user
+
+
+OwnerUserDep = Annotated[User, Depends(require_owner)]

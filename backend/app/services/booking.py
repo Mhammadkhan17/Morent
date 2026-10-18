@@ -7,8 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.core.config import settings
-from app.models import Booking, Car, PromoCode
+from app.models import Booking, Car, Notification, PromoCode
 from app.schemas.bookings import BookingRequest
+from app.services.booking_status import find_owner_id
+from app.services.event_hub import event_hub
 from app.services.pricing import Quote, quote
 from app.services.stripe_service import StripeService
 
@@ -137,9 +139,35 @@ async def create_booking(
     )
 
     booking.stripe_session_id = checkout.id
+    owner_id = await find_owner_id(session)
+    note: Notification | None = None
+    if owner_id:
+        note = Notification(
+            user_id=owner_id,
+            type="booking_new",
+            title="New booking",
+            body=f"{car.name} booked by {user_email or user_id}.",
+            link=f"/admin/bookings/{booking.id}",
+        )
+        session.add(note)
     session.add(booking)
     await session.commit()
     await session.refresh(booking)
+    if note is not None and owner_id is not None:
+        event_hub.publish(
+            owner_id,
+            {
+                "event": "notification",
+                "id": note.id,
+                "data": {
+                    "id": note.id,
+                    "type": note.type,
+                    "title": note.title,
+                    "body": note.body,
+                    "link": note.link,
+                },
+            },
+        )
     return booking, checkout.id, checkout.client_secret
 
 

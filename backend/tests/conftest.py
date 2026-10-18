@@ -1,7 +1,8 @@
 from collections.abc import AsyncIterator
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
+import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -12,7 +13,7 @@ from app.core.config import settings
 from app.core.db import get_session
 from app.core.security import get_current_user
 from app.main import app
-from app.models import Car
+from app.models import Booking, Car, UserRow
 from app.services.stripe_service import get_stripe_service
 
 TEST_USER = {
@@ -195,3 +196,60 @@ def sign_stripe_event(payload: bytes, secret: str, timestamp: int | None = None)
         hashlib.sha256,
     ).hexdigest()
     return f"t={ts},v1={signed}"
+
+
+@pytest.fixture
+async def owner_user(db_session):
+    """`client` TEST_USER promoted to owner (require_owner reads this row)."""
+    row = UserRow(
+        id="user_test_1",
+        email="tester@example.com",
+        name="Tester",
+        role="owner",
+    )
+    db_session.add(row)
+    await db_session.commit()
+    return row
+
+
+async def seed_booking(
+    db_session,
+    booking_id: str,
+    *,
+    status: str,
+    total_cents: int,
+    created_at: datetime | None = None,
+    pickup: date | None = None,
+    dropoff: date | None = None,
+    car_id: str = "koenigsegg",
+    promo_code: str | None = None,
+    discount_cents: int = 0,
+    user_id: str = "user_test_1",
+) -> Booking:
+    pickup = pickup or date.today() + timedelta(days=2)
+    dropoff = dropoff or (pickup + timedelta(days=2))
+    booking = Booking(
+        id=booking_id,
+        user_id=user_id,
+        car_id=car_id,
+        pickup_date=pickup,
+        dropoff_date=dropoff,
+        pickup_time="10:00",
+        dropoff_time="10:00",
+        pickup_location="NYC",
+        dropoff_location="NYC",
+        days=(dropoff - pickup).days,
+        billing_name="Test User",
+        billing_phone="p",
+        billing_address="a",
+        billing_city="c",
+        promo_code=promo_code,
+        subtotal_cents=total_cents,
+        discount_cents=discount_cents,
+        total_cents=total_cents,
+        status=status,
+        created_at=created_at or datetime.now(UTC),
+    )
+    db_session.add(booking)
+    await db_session.commit()
+    return booking

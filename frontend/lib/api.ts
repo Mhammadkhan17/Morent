@@ -3,7 +3,7 @@ import { authClient } from "@/lib/auth-client";
 // Server: BACKEND_URL service binding (Vercel) with localhost fallback for dev.
 // Browser: same-origin path — NEXT_PUBLIC_API_BASE_URL is "" in prod so requests
 // ride the /api/* rewrite; local dev points at localhost:8000 directly.
-function apiBase(): string {
+export function apiBase(): string {
   if (typeof window === "undefined") {
     return (process.env.BACKEND_URL ?? "http://localhost:8000").replace(/\/$/, "");
   }
@@ -56,6 +56,9 @@ async function request<T>(
       // non-JSON error body
     }
     throw new ApiError(res.status, detail);
+  }
+  if (res.status === 204) {
+    return undefined as T;
   }
   return (await res.json()) as T;
 }

@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/AuthProvider";
+import NotificationBell from "./NotificationBell";
 
 export default function AuthArea() {
   const { user, isLoading, signOut } = useAuth();
@@ -23,6 +24,12 @@ export default function AuthArea() {
 
   return (
     <div className="flex items-center gap-2">
+      <NotificationBell />
+      {user.role === "owner" && (
+        <Button asChild size="sm" variant="outline">
+          <Link href="/admin">Admin</Link>
+        </Button>
+      )}
       <Avatar className="size-9">
         <AvatarImage src="/asset/Man-Avatar/avatar.png" alt={user.email} />
         <AvatarFallback>

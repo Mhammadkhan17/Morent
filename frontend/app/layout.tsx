@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import MainHeader from "./components/header";
 import { Footer } from "./components/footer";
 import { AuthProvider } from "@/lib/AuthProvider";
+import NotificationToasts from "./components/NotificationToasts";
 import { RentalDataProvider } from "./context/RentalDataContext"; // Import the context provider
 
 const sans = Plus_Jakarta_Sans({
@@ -31,6 +32,7 @@ export default function RootLayout({
             <MainHeader />
             {children}
             <Footer />
+            <NotificationToasts />
           </RentalDataProvider>
         </AuthProvider>
       </body>

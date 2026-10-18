@@ -5,7 +5,15 @@ from sqlmodel import SQLModel
 
 from alembic import context
 from app.core.config import settings
-from app.models import Booking, Car, Payment, PromoCode  # noqa: F401 — register tables
+from app.models import (  # noqa: F401 — register tables
+    Booking,
+    Car,
+    CustomerProfile,
+    Message,
+    Notification,
+    Payment,
+    PromoCode,
+)
 
 config = context.config
 

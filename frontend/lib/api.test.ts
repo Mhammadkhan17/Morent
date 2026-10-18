@@ -47,6 +47,21 @@ afterEach(() => {
 });
 
 describe("api auth header", () => {
+  it("returns undefined for 204 responses without parsing a body", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 204,
+      statusText: "No Content",
+      json: async () => {
+        throw new Error("204 must not parse json");
+      },
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(api.delete("/admin/cars/x")).resolves.toBeUndefined();
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
   it("sends Bearer token string from authClient.token().data.token", async () => {
     tokenMock.mockResolvedValue({
       data: { token: "tok_abc123" },

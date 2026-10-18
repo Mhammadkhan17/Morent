@@ -295,6 +295,90 @@ keys, no Marketplace), **Neon stays on the Development branch** until going live
 - CI green on `bb17932` + `7e9e895`. Current gates: vitest **14/14** ·
   pytest **50/50** · ruff clean · lint clean · build green.
 
+## M6 Owner dashboard — built (2026-10-18) · E2E checklist pending
+
+Skills: `design-taste-frontend` not needed (admin shell follows existing
+shadcn/semantic-token language) · `shadcn` (table + dialog + dropdown-menu
+added; `chart`/recharts **blocked** by pre-existing vitest↔vite↔types peer
+ERESOLVE → hand-rolled SVG/div charts, no chart dep) · `tdd` (seams already
+confirmed in M5 batch; new suites follow the same HTTP-level pattern).
+
+### Backend (M6-1 … M6-5)
+
+- **M6-1 roles**: `require_owner` + `OwnerUserDep`/`SessionDep` in
+  `core/security.py` (DB row check, not JWT claim). Frontend:
+  `additionalFields.role` + `databaseHooks` owner promotion
+  (`lib/auth.ts`, `OWNER_EMAIL` allowlist, case-insensitive).
+- **M6-3 schema**: `users` mirror, `customer_profiles`, `messages`,
+  `notifications` (+ indexes); migration `873baecbda05_dashboard_foundation`
+  applied to Neon Development.
+- **M6-4 SSE**: `EventHub` (per-user queues, drop-on-overflow) +
+  `GET /api/v1/events` (`fastapi.sse.EventSourceResponse`, `: connected`
+  first frame, `: heartbeat` every 25 s, unsubscribe in `finally`). Tests
+  drive the ASGI app directly — httpx `ASGITransport` buffers `client.stream()`.
+- **M6-2 transitions**: single `booking_status.transition()` —
+  `ALLOWED_TRANSITIONS` (pending→confirmed|cancelled …), guard →
+  `IllegalTransition`, counterparty notifications via `_notifications_for`,
+  commit-then-publish (no phantom SSE). Webhooks now call
+  `transition(actor="webhook")`; regression test green.
+- **M6-5 admin API** (`api/v1/admin.py`, `dependencies=[require_owner]`):
+  overview KPIs (revenue MTD on confirmed/active/completed, utilization =
+  distinct booked cars / fleet, recentActivity) · bookings list
+  (status/car/q filters) · PATCH booking (409 illegal, 404 missing) ·
+  cars CRUD (slug ids; DELETE 409s on any referencing booking → steer to
+  `status=hidden`; public list filters `available` only) · promo CRUD
+  (uppercase-normalized, 409 dup, percent 1–100) · customers list/detail
+  (owner 404s) · analytics (revenueByDay/Week, bookings/utilization by car,
+  topPromoCodes; Python-side grouping, default 30 d window).
+  New booking also notifies the owner (`booking_new` + SSE).
+- Tests **48 → 89**; ruff clean throughout.
+
+### Frontend (M6-6 … M6-7)
+
+- `lib/api.ts`: 204 → `undefined` (was `res.json()` crash); `apiBase()`
+  exported for SSE.
+- `/admin/*`: role-gated `layout.tsx` (redirect `/`, sidebar 6 items) ·
+  overview KPI cards + recent activity · bookings filterable table +
+  calendar view toggle, row action buttons from `BOOKING_ACTIONS`
+  (mirrors backend map), debounced search · cars table + create/edit
+  dialog (FieldGroup, dynamic image URL list with preview/remove) +
+  delete-confirm dialog (409 → "hide instead" guidance) · customers
+  list → `[id]` detail (profile + history) · promos CRUD dialog ·
+  analytics with hand-rolled charts (SVG revenue line w/ area + gridline
+  ticks, div-bar weekly/bookings/utilization, promos table, date range
+  inputs + Apply). Shared `components/calendar/MonthGrid.tsx` built here
+  for M7 reuse. Header: owner-only **Admin** link (`AuthArea`).
+- **M6-7 realtime plumbing**: `lib/sse.ts` `useEventStream()` — fetch-stream
+  (Bearer header EventSource can't send), frame parser
+  (event/id/data/comments), exponential backoff 1 s → 30 s, `Last-Event-ID`
+  resume, timer/abort cleanup, `enabled` tied to session; mounted once in
+  `AuthProvider` (plan §shared plumbing). `lib/notifications.ts` +
+  backend `GET /me/notifications` (newest 50 + unreadCount badge),
+  `POST …/{id}/read` (own-only 404), `POST …/read-all` (6 new tests).
+  Context gains notifications/unread/toasts; refetch on focus + route
+  change (SSE down ≠ notifications dead). `NotificationBell`
+  (dropdown-menu: unread badge, mark all read, deep-link rows) in header;
+  `NotificationToasts` (6 s auto-dismiss, click → link) in root layout.
+- **Deps**: `@radix-ui/react-dropdown-menu` added. Lesson: install with
+  `--legacy-peer-deps` **pruned `vite`'s whole subtree** from the lock →
+  vitest died (`ERR_MODULE_NOT_FOUND`); fixed by pinning `vite@^8.3.4`
+  as an explicit devDependency — lock diff back to pure +22 entries,
+  0 removals.
+
+### Gates (2026-10-18)
+
+Backend ruff clean · pytest **89/89** · frontend lint clean · tsc clean ·
+vitest **15/15** · build green (all 7 `/admin` routes).
+
+### Open — M6-8
+
+`OWNER_EMAIL` value not yet chosen (empty placeholders in
+`frontend/.env.local` + Vercel → nobody auto-promotes) · Vercel env add +
+`vercel redeploy` after it · full M6 checklist run-through (Dashboard-plan
+L149–155: owner signup → add/hide car → live booking → active/completed →
+delete-block → analytics revenue → non-owner 403/redirect) · todo.md boxes ·
+commit/push (user go-ahead only).
+
 ## Phase 0 — Groundwork (2026-10-15)
 
 - Plan written (`plans/redesign-plan.md`): staged waves, gates, install policy.
