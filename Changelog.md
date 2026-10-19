@@ -2,7 +2,8 @@
 
 All notable work from the development session reviving the Morent car-rental
 project (old hackathon codebase → redesigned, asset-wired, feature-complete
-frontend). This file is intentionally local-only (ignored by git).
+frontend). This file is tracked by git (its header previously — and wrongly —
+claimed local-only; resolved 2026-10-19).
 
 Session dates: 2026-10-15 → 2026-10-17
 Working dir: `/home/user/projects/Morent` · Stack: Next.js 16.4.1, React 19,
@@ -379,6 +380,35 @@ L149–155: owner signup → add/hide car → live booking → active/completed 
 delete-block → analytics revenue → non-owner 403/redirect) · todo.md boxes ·
 commit/push (user go-ahead only).
 
+### M6 follow-ups (2026-10-19)
+
+Three user-reported issues after the M6 deploy; outcomes:
+
+- **Stripe listener (fixed, ops-only)**: same two-sandbox root cause as M5 —
+  `stripe listen` must run with the app's key (`morent-listen` alias:
+  `STRIPE_API_KEY=$(grep ^STRIPE_SECRET_KEY= backend/.env …) stripe listen
+  --forward-to http://localhost:8000/api/v1/webhooks/stripe`), then paste
+  that listener's whsec and restart the backend. Matching whsec alone is a
+  red herring — if the CLI is logged into the other account, events never
+  route to the listener. ("Payment works" meanwhile is real: `/Payment/complete`
+  polls `session-status` straight from Stripe, independent of webhooks.)
+- **Owner landing on `/admin` after signup: dropped** (user decision).
+- **Admin gate → real 404** (replaces the client skeleton → `router.replace("/")`
+  bounce): `app/admin/layout.tsx` is now a **server component** —
+  `auth.api.getSession({ headers })` → `notFound()` for signed-out and
+  non-owner sessions (server API returns `{ user } | null`, not the client
+  `{ data }` shape). Nav extracted to client `app/admin/AdminShell.tsx`
+  (active-state only). API routes unchanged (`require_owner` → 403).
+  All `/admin/*` routes flipped static → dynamic (`ƒ`).
+- **Custom 404**: `app/not-found.tsx` — Card in the Payment-complete language:
+  *“This page went out for a test drive — and never came back.”* (lot/GPS
+  punchline, Back to home + Browse cars). Catches every 404 sitewide inside
+  root header/footer chrome, including the admin gate.
+- Verified live on the running dev server (anon): `/` 200 · `/admin`,
+  `/admin/bookings`, `/admin/customers/xyz` → 404 with the new card.
+- Gates: lint clean · build green (admin routes server-rendered `ƒ`) ·
+  vitest 15/15.
+
 ## Phase 0 — Groundwork (2026-10-15)
 
 - Plan written (`plans/redesign-plan.md`): staged waves, gates, install policy.
@@ -567,5 +597,3 @@ User-requested new page (explicit override of the "no new pages" polish rule):
 - Search field in header is decorative (no search behavior yet).
 - Explore capacity counts are global, not faceted with other filters.
 - Decline-card path (`4000000000000002`) still a manual spot-check.
-- `Changelog.md` is tracked by git despite its header claiming local-only —
-  unresolved: revert to untracked or fix the header (user decision pending).
