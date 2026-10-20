@@ -1,3 +1,4 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -19,6 +20,13 @@ class Settings(BaseSettings):
     frontend_url: str | None = None
 
     owner_email: str = ""
+
+    @field_validator("database_url", "database_url_unpooled")
+    @classmethod
+    def _normalize_sslmode(cls, v: str) -> str:
+        for mode in ("verify-full", "verify-ca"):
+            v = v.replace(f"sslmode={mode}", "sslmode=require")
+        return v
 
 
 settings = Settings()
