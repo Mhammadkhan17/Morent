@@ -4,6 +4,7 @@ from app.models.car import Car
 from app.models.customer import CustomerProfile
 from app.models.notification import Message, Notification
 from app.models.promo import PromoCode
+from app.models.webhook_event import WebhookEvent
 
 __all__ = [
     "Booking",
@@ -14,4 +15,5 @@ __all__ = [
     "Payment",
     "PromoCode",
     "UserRow",
+    "WebhookEvent",
 ]
