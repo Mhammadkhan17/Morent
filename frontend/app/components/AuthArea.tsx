@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { LogOut, ShieldCheck } from "lucide-react";
+import { CircleUser, LogOut, ShieldCheck } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -56,6 +56,12 @@ export default function AuthArea() {
           <p className="truncate text-xs text-muted-foreground">{user.email}</p>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href="/account">
+            <CircleUser aria-hidden="true" className="size-4" />
+            My account
+          </Link>
+        </DropdownMenuItem>
         {user.role === "owner" && (
           <DropdownMenuItem asChild>
             <Link href="/admin">

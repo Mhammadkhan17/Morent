@@ -27,6 +27,14 @@ export type SessionUser = {
   role?: string | null;
 };
 
+export type LiveMessage = {
+  id: string;
+  bookingId: string;
+  senderId: string;
+  body: string;
+  createdAt: string;
+};
+
 type AuthContextValue = {
   user: SessionUser | null;
   isLoading: boolean;
@@ -39,6 +47,8 @@ type AuthContextValue = {
   markAllNotificationsRead: () => Promise<void>;
   toasts: LiveToast[];
   dismissToast: (id: string) => void;
+  /** Latest SSE `message` event — inbox page reacts to changes on this. */
+  lastMessage: LiveMessage | null;
 };
 
 const AuthContext = createContext<AuthContextValue>({
@@ -53,6 +63,7 @@ const AuthContext = createContext<AuthContextValue>({
   markAllNotificationsRead: async () => {},
   toasts: [],
   dismissToast: () => {},
+  lastMessage: null,
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -61,6 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [toasts, setToasts] = useState<LiveToast[]>([]);
+  const [lastMessage, setLastMessage] = useState<LiveMessage | null>(null);
   const seenIdsRef = useRef<Set<string>>(new Set());
   const pathname = usePathname();
 
@@ -169,6 +181,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           ].slice(-3)
         );
       },
+      onMessage: (payload) => {
+        const id = typeof payload.id === "string" ? payload.id : "";
+        if (!id || seenIdsRef.current.has(`msg:${id}`)) return;
+        seenIdsRef.current.add(`msg:${id}`);
+        setLastMessage({
+          id,
+          bookingId: typeof payload.bookingId === "string" ? payload.bookingId : "",
+          senderId: typeof payload.senderId === "string" ? payload.senderId : "",
+          body: typeof payload.body === "string" ? payload.body : "",
+          createdAt:
+            typeof payload.createdAt === "string"
+              ? payload.createdAt
+              : new Date().toISOString(),
+        });
+      },
     },
     user !== null
   );
@@ -187,6 +214,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         markAllNotificationsRead,
         toasts,
         dismissToast,
+        lastMessage,
       }}
     >
       {children}

@@ -33,7 +33,15 @@ const toIso = (date: Date): string => {
  * Shared month calendar (M6 admin bookings; reused by M7 customer portal).
  * Days covered by a booking [pickupDate, dropoffDate] get a status dot.
  */
-export function MonthGrid({ bookings }: { bookings: MonthGridBooking[] }) {
+export function MonthGrid({
+  bookings,
+  selectedDay,
+  onSelectDay,
+}: {
+  bookings: MonthGridBooking[];
+  selectedDay?: string;
+  onSelectDay?: (iso: string) => void;
+}) {
   const now = new Date();
   const [cursor, setCursor] = useState({
     year: now.getFullYear(),
@@ -131,9 +139,14 @@ export function MonthGrid({ bookings }: { bookings: MonthGridBooking[] }) {
           }
           const dayBookings = bookingsByDay.get(iso) ?? [];
           const isToday = iso === todayIso;
+          const isSelected = iso === selectedDay;
+          const interactive = Boolean(onSelectDay);
           return (
-            <div
+            <button
               key={iso}
+              type="button"
+              disabled={!interactive}
+              onClick={() => onSelectDay?.(iso)}
               title={
                 dayBookings.length > 0
                   ? dayBookings.map((b) => `${b.status}: ${b.id}`).join("\n")
@@ -141,10 +154,14 @@ export function MonthGrid({ bookings }: { bookings: MonthGridBooking[] }) {
               }
               className={cn(
                 "flex size-10 flex-col items-center justify-center gap-1 rounded-md border text-xs",
+                interactive && "transition-colors hover:bg-accent/70",
+                !interactive && "cursor-default",
                 isToday && "border-primary font-semibold",
+                isSelected && "border-primary bg-primary/10 font-semibold",
                 dayBookings.length > 0
                   ? "bg-accent text-foreground"
-                  : "border-transparent text-muted-foreground"
+                  : "border-transparent text-muted-foreground",
+                isSelected && "text-foreground"
               )}
             >
               <span>{Number.parseInt(iso.slice(-2), 10)}</span>
@@ -161,7 +178,7 @@ export function MonthGrid({ bookings }: { bookings: MonthGridBooking[] }) {
                   ))}
                 </span>
               )}
-            </div>
+            </button>
           );
         })}
       </div>

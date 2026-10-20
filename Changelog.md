@@ -646,3 +646,81 @@ Temporary fix plan (`FIX-PLAN.md`, phases A–F) — all done, gated:
   under `text-white`), `color-scheme: light/dark` on `:root`/`.dark` (native
   date/time inputs + scrollbars follow the theme), Stripe PaymentElement now
   mounts with `theme: "night"` in dark mode.
+
+---
+
+## Vercel P4/P5 closed + M7 customer portal (2026-10-21)
+
+Skills loaded: `tdd`. Plan/status log: `plans/deploy/vercel-plan.md`,
+`plans/backend/Dashboard-plan.md`, `plans/todo.md`.
+
+### Vercel P4 — prod Stripe webhook (closed)
+
+- **Root cause**: no prod endpoint ever existed (`stripe webhook_endpoints
+  list` empty) — `badabc57` confirmed only because local `stripe listen`
+  forwarded into the shared Neon DB. Created endpoint `we_1USiSj1tU3M2nJvCms5WC6ou`
+  → `https://morent-mu-two.vercel.app/api/v1/webhooks/stripe`, 4 events
+  (`checkout.session.completed/expired/async_payment_{succeeded,failed}`),
+  per-endpoint API version pinned `2026-09-30.endive`. Signing secret piped
+  into Vercel prod env without display; local CLI listen loop untouched.
+- **Durable idempotency (TDD)**: new `webhook_events` table (PK `event_id`,
+  status `received|processed|failed`) — handler claims the id **before**
+  business work; duplicate → 200 no-op; crash after claim → `failed` +
+  HTTP 500 so Stripe retry re-enters; in-process `asyncio.Lock` (per-loop
+  `WeakKeyDictionary`) serializes parallel deliveries — fixed a live race
+  where interleaved sessions lost the booking `confirmed` commit while the
+  payment row persisted. Migration `7614f96e736b` applied to Neon.
+- **Verified on prod**: `stripe trigger checkout.session.completed` →
+  `evt_1USikK…` recorded `processed` in prod `webhook_events` (endpoint +
+  secret + handler + 2xx all proven); forged `stripe-signature` POST →
+  400 `Invalid signature` (failure drill, no state change).
+
+### Vercel P5 — database posture (closed)
+
+- Decision recorded: stay on Neon **Development branch** while demo; swap
+  procedure (create `prod` from Development → new `DATABASE_URL*` → redeploy)
+  written into a new **Ops runbook** section of `vercel-plan.md` (env
+  inventory by name, migration posture, webhook anatomy, free-tier backup
+  note). P7 checklist all ✅ except two advisory boxes (Preview env trio,
+  GitHub merge-rule — neither blocks demo).
+
+### M7 — Customer portal (code complete; gate open)
+
+- **Backend (test-first)**: `GET /me/bookings` (enriched w/ car + unread
+  count), `GET/PATCH /me/profile` (upsert `customer_profiles`),
+  `GET/POST /bookings/{id}/messages` (participant-only 403; POST notifies
+  the other party — owners when customer posts, customer when owner posts —
+  with SSE `message` + `notification` events; GET marks incoming read).
+  13 new tests → backend **110/110**, ruff clean. Closes the M6
+  message-recipient-writer leftover.
+- **Frontend**: `app/account/*` — AccountShell (session gate →
+  `/login?next=…`), Overview (current-booking hero + next-up + unread),
+  Bookings (Current/Upcoming/History tabs, hand-rolled pill tabs), Calendar
+  (shared `MonthGrid` extended with optional `onSelectDay`/`selectedDay` +
+  selected-day booking card), Inbox (booking list → thread, composer,
+  SSE-live via new `AuthProvider.lastMessage`, `?booking=` deep link from
+  notifications), Settings (phone/license form + sign out). Avatar menu
+  gains **My account**. `lib/account.ts` SDK-style client.
+- **Gates**: backend ruff clean + pytest **110/110**; frontend lint clean ·
+  tsc clean · build green (all 5 `/account/*` routes) · vitest **15/15**.
+  Remaining: M7 verification gate (user run) + §7 final regression.
+
+### Same-day user-reported fixes (2026-10-21)
+
+- **Theme console error**: raw `<script dangerouslySetInnerHTML>` in
+  `app/layout.tsx` triggered React 19's "scripts inside components never
+  execute" warning on client re-renders. Swapped to `next/script`
+  `strategy="beforeInteractive"` — Next injects it outside React
+  reconciliation; pre-paint no-flash timing unchanged.
+- **Owner message dead-end**: customer→owner messages notified the owner
+  and linked to `/admin/bookings?thread=…`, but no owner thread UI existed.
+  Extracted shared `components/thread/ThreadPanel.tsx` (fetch + composer +
+  SSE-live via `AuthProvider.lastMessage`); `/account/inbox` now reuses it,
+  and `/admin/bookings` gained a per-row **Messages** button + dialog that
+  auto-opens on `?thread=` (car name resolved from the loaded list).
+  Owner↔customer loop is now complete both directions.
+- **Payment auto-prepare removed**: the 700ms debounced effect that created
+  a booking and swapped in the Stripe panel as soon as the terms box made
+  the form valid is gone — **Rent now** is the only trigger for prepare →
+  panel mount. No charge ever happened on checkbox-check, but the UI jump
+  was surprising; flow is now explicit.

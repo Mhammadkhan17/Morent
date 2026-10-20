@@ -4,8 +4,16 @@ from fastapi import APIRouter, HTTPException
 from sqlmodel import func, select
 
 from app.core.security import CurrentUserDep, SessionDep
-from app.models import Notification
-from app.schemas.me import NotificationItem, NotificationListResponse
+from app.models import Booking, Car, CustomerProfile, Message, Notification
+from app.schemas.me import (
+    MeBookingCar,
+    MeBookingItem,
+    MeBookingListResponse,
+    NotificationItem,
+    NotificationListResponse,
+    ProfilePayload,
+    ProfileResponse,
+)
 
 me_router = APIRouter(prefix="/me", tags=["me"])
 
@@ -23,6 +31,17 @@ def _item(notification: Notification) -> NotificationItem:
         link=notification.link,
         read_at=notification.read_at,
         created_at=notification.created_at,
+    )
+
+
+def _profile_item(user_id: str, profile: CustomerProfile | None) -> ProfileResponse:
+    if profile is None:
+        return ProfileResponse(user_id=user_id)
+    return ProfileResponse(
+        user_id=user_id,
+        phone=profile.phone,
+        license_number=profile.license_number,
+        license_expires=profile.license_expires,
     )
 
 
@@ -100,3 +119,74 @@ async def read_notification(
         session.add(notification)
         await session.commit()
     return _item(notification)
+
+
+@me_router.get("/bookings")
+async def list_me_bookings(
+    user: CurrentUserDep, session: SessionDep
+) -> MeBookingListResponse:
+    user_id = _user_id(user)
+    rows = (
+        await session.exec(
+            select(Booking, Car)
+            .join(Car, Booking.car_id == Car.id)
+            .where(Booking.user_id == user_id)
+            .order_by(Booking.created_at.desc())
+        )
+    ).all()
+    items: list[MeBookingItem] = []
+    for booking, car in rows:
+        unread = (
+            await session.exec(
+                select(func.count())
+                .select_from(Message)
+                .where(
+                    Message.booking_id == booking.id,
+                    Message.sender_id != user_id,
+                    Message.read_at.is_(None),
+                )
+            )
+        ).one()
+        items.append(
+            MeBookingItem(
+                id=booking.id,
+                status=booking.status,
+                pickup_date=booking.pickup_date,
+                dropoff_date=booking.dropoff_date,
+                pickup_time=booking.pickup_time,
+                dropoff_time=booking.dropoff_time,
+                pickup_location=booking.pickup_location,
+                dropoff_location=booking.dropoff_location,
+                days=booking.days,
+                total_cents=booking.total_cents,
+                currency=booking.currency,
+                unread_messages=unread,
+                car=MeBookingCar(
+                    id=car.id, name=car.name, type=car.type, image_url=car.image_url
+                ),
+            )
+        )
+    return MeBookingListResponse(bookings=items)
+
+
+@me_router.get("/profile")
+async def get_profile(user: CurrentUserDep, session: SessionDep) -> ProfileResponse:
+    user_id = _user_id(user)
+    profile = await session.get(CustomerProfile, user_id)
+    return _profile_item(user_id, profile)
+
+
+@me_router.patch("/profile")
+async def patch_profile(
+    payload: ProfilePayload, user: CurrentUserDep, session: SessionDep
+) -> ProfileResponse:
+    user_id = _user_id(user)
+    profile = await session.get(CustomerProfile, user_id)
+    if profile is None:
+        profile = CustomerProfile(user_id=user_id)
+    changes = payload.model_dump(exclude_unset=True)
+    for key, value in changes.items():
+        setattr(profile, key, value)
+    session.add(profile)
+    await session.commit()
+    return _profile_item(user_id, profile)

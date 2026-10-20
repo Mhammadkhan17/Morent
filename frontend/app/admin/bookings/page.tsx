@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { MessageSquare } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,6 +12,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -28,6 +36,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { MonthGrid } from "@/components/calendar/MonthGrid";
+import { ThreadPanel } from "@/components/thread/ThreadPanel";
 import {
   BOOKING_ACTIONS,
   BOOKING_STATUSES,
@@ -53,6 +62,15 @@ const actionLabel = (status: string) =>
   status.charAt(0).toUpperCase() + status.slice(1);
 
 export default function AdminBookingsPage() {
+  return (
+    <Suspense fallback={<Skeleton className="h-72 rounded-lg" />}>
+      <AdminBookingsInner />
+    </Suspense>
+  );
+}
+
+function AdminBookingsInner() {
+  const searchParams = useSearchParams();
   const [bookings, setBookings] = useState<AdminBooking[]>([]);
   const [cars, setCars] = useState<AdminCar[]>([]);
   const [status, setStatus] = useState<string>(ALL);
@@ -63,6 +81,9 @@ export default function AdminBookingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [threadId, setThreadId] = useState<string | null>(
+    () => searchParams.get("thread")
+  );
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -101,6 +122,9 @@ export default function AdminBookingsPage() {
         // filter select degrades to ids-less list; bookings still load
       });
   }, []);
+
+  const threadCarName =
+    bookings.find((booking) => booking.id === threadId)?.carName ?? "";
 
   const act = async (booking: AdminBooking, nextStatus: string) => {
     setBusyId(booking.id);
@@ -263,29 +287,34 @@ export default function AdminBookingsPage() {
                             <StatusBadge status={booking.status} />
                           </TableCell>
                           <TableCell className="text-right">
-                            {actions.length === 0 ? (
-                              <span className="text-xs text-muted-foreground">
-                                —
-                              </span>
-                            ) : (
-                              <div className="flex justify-end gap-1.5">
-                                {actions.map((next) => (
-                                  <Button
-                                    key={next}
-                                    size="sm"
-                                    variant={
-                                      next === "cancelled"
-                                        ? "outline"
-                                        : "secondary"
-                                    }
-                                    disabled={busyId === booking.id}
-                                    onClick={() => void act(booking, next)}
-                                  >
-                                    {actionLabel(next)}
-                                  </Button>
-                                ))}
-                              </div>
-                            )}
+                            <div className="flex justify-end gap-1.5">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setThreadId(booking.id)}
+                              >
+                                <MessageSquare
+                                  aria-hidden="true"
+                                  className="mr-1.5 size-3.5"
+                                />
+                                Messages
+                              </Button>
+                              {actions.map((next) => (
+                                <Button
+                                  key={next}
+                                  size="sm"
+                                  variant={
+                                    next === "cancelled"
+                                      ? "outline"
+                                      : "secondary"
+                                  }
+                                  disabled={busyId === booking.id}
+                                  onClick={() => void act(booking, next)}
+                                >
+                                  {actionLabel(next)}
+                                </Button>
+                              ))}
+                            </div>
                           </TableCell>
                         </TableRow>
                       );
@@ -297,6 +326,22 @@ export default function AdminBookingsPage() {
           </CardContent>
         </Card>
       )}
+
+      <Dialog
+        open={threadId !== null}
+        onOpenChange={(open) => {
+          if (!open) setThreadId(null);
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              Messages{threadCarName ? ` — ${threadCarName}` : ""}
+            </DialogTitle>
+          </DialogHeader>
+          {threadId && <ThreadPanel key={threadId} bookingId={threadId} />}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -264,7 +264,7 @@ const PaymentContent = () => {
     }
   };
 
-  // Create booking → Stripe clientSecret → mount card panel (auto + manual)
+  // Create booking → Stripe clientSecret → mount card panel (Rent now only)
   const prepareBooking = useCallback(
     async (opts: { manual?: boolean } = {}): Promise<void> => {
       if (prepareLockRef.current) return;
@@ -377,28 +377,6 @@ const PaymentContent = () => {
       clientSecret,
     ]
   );
-
-  // Auto-prepare: valid form + terms + settled quote → panel mounts itself
-  useEffect(() => {
-    if (clientSecret || !formData.agreedToTerms || isSubmitting) return;
-    if (!canQuote || !activeQuote || isQuoting) return;
-    const timer = window.setTimeout(() => {
-      if (Object.keys(validateForm(formData)).length > 0) return;
-      void prepareBooking();
-    }, 700);
-    return () => window.clearTimeout(timer);
-  }, [
-    clientSecret,
-    formData,
-    appliedPromo,
-    canQuote,
-    activeQuote,
-    isQuoting,
-    isSubmitting,
-    carId,
-    selectedCar,
-    prepareBooking,
-  ]);
 
   const messageIsSuccess =
     statusMessage === "Your rental has been confirmed!";

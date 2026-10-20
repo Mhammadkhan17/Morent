@@ -1,6 +1,7 @@
 import "./globals.css";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import type { Metadata } from "next";
+import Script from "next/script";
 import MainHeader from "./components/header";
 import { Footer } from "./components/footer";
 import { AuthProvider } from "@/lib/AuthProvider";
@@ -32,8 +33,9 @@ export default function RootLayout({
         suppressHydrationWarning
       >
       <body className="font-sans antialiased">
-        {/* Stored/system theme before first paint — no flash of wrong theme */}
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        <Script id="theme-init" strategy="beforeInteractive">
+          {THEME_INIT_SCRIPT}
+        </Script>
         <AuthProvider>
           <RentalDataProvider>
             <MainHeader />
