@@ -47,7 +47,7 @@ const TopSection = () => {
           </div>
         </div>
 
-        <div className="relative h-[360px] w-full max-w-[640px] overflow-hidden rounded-xl bg-foreground dark:bg-zinc-900">
+        <div className="relative h-[360px] w-full max-w-[640px] overflow-hidden rounded-xl bg-foreground dark:bg-card">
           <RightBackgroundImage />
           <Image
             className="absolute bottom-0 right-0 h-[180px] w-auto object-contain object-bottom sm:h-[210px]"
