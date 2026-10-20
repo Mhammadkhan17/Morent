@@ -4,6 +4,7 @@ import { useRouter, useParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { Car, Fuel, Gauge, Heart, Users } from "lucide-react";
+import { toggleFavorite, useFavorites } from "@/lib/favorites";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -43,7 +44,8 @@ const CarDetailsPage = () => {
     allCars: CarType[];
     loadError: string | null;
   }>({ id: null, car: null, allCars: [], loadError: null });
-  const [isFavorite, setIsFavorite] = useState(false);
+  const favorites = useFavorites();
+  const isFavorite = favorites.some((fav) => fav.id === id);
   const [activeImage, setActiveImage] = useState<{
     carId: string;
     index: number;
@@ -230,7 +232,14 @@ const CarDetailsPage = () => {
                 <CardTitle className="text-2xl">{car.name}</CardTitle>
                 <button
                   type="button"
-                  onClick={() => setIsFavorite((prev) => !prev)}
+                  onClick={() => {
+                    if (!car) return;
+                    toggleFavorite({
+                      id: car.id,
+                      name: car.name,
+                      image: car.imageUrl ?? "",
+                    });
+                  }}
                   aria-pressed={isFavorite}
                   aria-label={
                     isFavorite ? "Remove from favorites" : "Add to favorites"

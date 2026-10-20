@@ -19,6 +19,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { LOCATION_OPTIONS } from "@/lib/locations";
+import { cn } from "@/lib/utils";
+import type { FieldErrors } from "./validation";
 
 interface PickupDropoffData {
   date: string;
@@ -31,19 +33,37 @@ interface RentalInfoProps {
     pickup: PickupDropoffData;
     dropoff: PickupDropoffData;
   };
+  errors: FieldErrors;
   onInputChange: (
     field: `pickup.${keyof PickupDropoffData}` | `dropoff.${keyof PickupDropoffData}`,
     value: string
   ) => void;
+  onBlurField: (
+    field: `pickup.${keyof PickupDropoffData}` | `dropoff.${keyof PickupDropoffData}`
+  ) => void;
 }
 
-const RentalInfo = ({ formData, onInputChange }: RentalInfoProps) => {
+const RentalInfo = ({ formData, errors, onInputChange, onBlurField }: RentalInfoProps) => {
   const handleChange = (
     type: "pickup" | "dropoff",
     field: keyof PickupDropoffData,
     value: string
   ) => {
     onInputChange(`${type}.${field}`, value);
+  };
+
+  const renderError = (type: "pickup" | "dropoff", field: keyof PickupDropoffData) => {
+    const error = errors[`rentalInfo.${type}.${field}`];
+    if (!error) return null;
+    return (
+      <p
+        id={`${type}-${field}-error`}
+        role="alert"
+        className="text-sm text-destructive"
+      >
+        {error}
+      </p>
+    );
   };
 
   return (
@@ -73,7 +93,22 @@ const RentalInfo = ({ formData, onInputChange }: RentalInfoProps) => {
                   value={formData[type].location}
                   onValueChange={(value) => handleChange(type, "location", value)}
                 >
-                  <SelectTrigger id={`${type}-location`} className="w-full">
+                  <SelectTrigger
+                    id={`${type}-location`}
+                    className={cn(
+                      "w-full",
+                      errors[`rentalInfo.${type}.location`] && "border-destructive"
+                    )}
+                    onBlur={() => onBlurField(`${type}.location`)}
+                    aria-invalid={
+                      errors[`rentalInfo.${type}.location`] ? true : undefined
+                    }
+                    aria-describedby={
+                      errors[`rentalInfo.${type}.location`]
+                        ? `${type}-location-error`
+                        : undefined
+                    }
+                  >
                     <SelectValue placeholder="Select your city" />
                   </SelectTrigger>
                   <SelectContent>
@@ -86,6 +121,7 @@ const RentalInfo = ({ formData, onInputChange }: RentalInfoProps) => {
                     </SelectGroup>
                   </SelectContent>
                 </Select>
+                {renderError(type, "location")}
               </Field>
 
               <Field>
@@ -97,8 +133,21 @@ const RentalInfo = ({ formData, onInputChange }: RentalInfoProps) => {
                   onChange={(event) =>
                     handleChange(type, "date", event.target.value)
                   }
+                  onBlur={() => onBlurField(`${type}.date`)}
+                  aria-invalid={
+                    errors[`rentalInfo.${type}.date`] ? true : undefined
+                  }
+                  aria-describedby={
+                    errors[`rentalInfo.${type}.date`]
+                      ? `${type}-date-error`
+                      : undefined
+                  }
+                  className={cn(
+                    errors[`rentalInfo.${type}.date`] && "border-destructive"
+                  )}
                   required
                 />
+                {renderError(type, "date")}
               </Field>
 
               <Field>
@@ -110,8 +159,21 @@ const RentalInfo = ({ formData, onInputChange }: RentalInfoProps) => {
                   onChange={(event) =>
                     handleChange(type, "time", event.target.value)
                   }
+                  onBlur={() => onBlurField(`${type}.time`)}
+                  aria-invalid={
+                    errors[`rentalInfo.${type}.time`] ? true : undefined
+                  }
+                  aria-describedby={
+                    errors[`rentalInfo.${type}.time`]
+                      ? `${type}-time-error`
+                      : undefined
+                  }
+                  className={cn(
+                    errors[`rentalInfo.${type}.time`] && "border-destructive"
+                  )}
                   required
                 />
+                {renderError(type, "time")}
               </Field>
             </FieldGroup>
           </div>

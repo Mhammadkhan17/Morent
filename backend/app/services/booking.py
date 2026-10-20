@@ -9,7 +9,7 @@ from sqlmodel import select
 from app.core.config import settings
 from app.models import Booking, Car, Notification, PromoCode
 from app.schemas.bookings import BookingRequest
-from app.services.booking_status import find_owner_id
+from app.services.booking_status import find_owner_id, transition
 from app.services.event_hub import event_hub
 from app.services.pricing import Quote, quote
 from app.services.stripe_service import StripeService
@@ -53,14 +53,22 @@ def validate_dates(pickup_date: date, dropoff_date: date) -> None:
 
 
 async def assert_no_overlap(
-    session: AsyncSession, car_id: str, pickup_date: date, dropoff_date: date
+    session: AsyncSession,
+    car_id: str,
+    pickup_date: date,
+    dropoff_date: date,
+    *,
+    exclude_user_id: str | None = None,
 ) -> None:
+    """Block when ANY other hold overlaps. The caller's own pending rows are
+    excluded only when a supersede follows (retry/edit of their own booking)."""
     result = await session.exec(
         select(Booking).where(
             Booking.car_id == car_id,
             Booking.status.in_(("pending", "confirmed", "active")),
             Booking.pickup_date <= dropoff_date,
             Booking.dropoff_date >= pickup_date,
+            *([Booking.user_id != exclude_user_id] if exclude_user_id else []),
         )
     )
     if result.first() is not None:
@@ -68,6 +76,38 @@ async def assert_no_overlap(
             status_code=status.HTTP_409_CONFLICT,
             detail="Car is already booked for the selected dates",
         )
+
+
+async def supersede_own_pending(
+    session: AsyncSession,
+    stripe_service: StripeService,
+    *,
+    user_id: str,
+    car_id: str,
+) -> list[str]:
+    """Cancel the caller's own pending bookings for this car and expire their
+    Stripe sessions (so a stale session can never be paid later). Keeps a
+    single open checkout per user+car: edit/retry supersedes instead of 409.
+    actor="superseded" produces no notifications — silent hold release."""
+    result = await session.exec(
+        select(Booking).where(
+            Booking.user_id == user_id,
+            Booking.car_id == car_id,
+            Booking.status == "pending",
+        )
+    )
+    expired: list[str] = []
+    for booking in result.all():
+        if booking.stripe_session_id:
+            try:
+                await stripe_service.expire_checkout_session(
+                    booking.stripe_session_id
+                )
+                expired.append(booking.stripe_session_id)
+            except Exception:  # session already expired/complete — keep going
+                pass
+        await transition(session, booking, "cancelled", actor="superseded")
+    return expired
 
 
 async def create_booking(
@@ -83,7 +123,14 @@ async def create_booking(
     validate_dates(payload.pickup.date, payload.dropoff.date)
     promo = await resolve_promo(session, payload.promo_code)
     await assert_no_overlap(
-        session, payload.car_id, payload.pickup.date, payload.dropoff.date
+        session,
+        payload.car_id,
+        payload.pickup.date,
+        payload.dropoff.date,
+        exclude_user_id=user_id,
+    )
+    await supersede_own_pending(
+        session, stripe_service, user_id=user_id, car_id=payload.car_id
     )
 
     priced: Quote = quote(car, payload.pickup.date, payload.dropoff.date, promo)
@@ -199,5 +246,6 @@ __all__ = [
     "create_booking",
     "get_available_car",
     "resolve_promo",
+    "supersede_own_pending",
     "validate_dates",
 ]

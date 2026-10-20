@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useMemo, useState, Suspense } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -25,6 +25,14 @@ import { createBooking, fetchQuote } from "@/lib/bookings";
 import type { Car, Quote } from "@/lib/types";
 import { useAuth } from "@/lib/AuthProvider";
 import { ApiError } from "@/lib/api";
+import {
+  FIELD_ORDER,
+  fieldElementId,
+  validateField,
+  validateForm,
+  type FieldErrors,
+  type FieldPath,
+} from "./validation";
 
 interface FormData {
   billingInfo: {
@@ -67,7 +75,11 @@ const PaymentContent = () => {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<FieldErrors>({});
   const { user, isLoading } = useAuth();
+  const prepareLockRef = useRef(false);
+  const preparedSignatureRef = useRef<string | null>(null);
+  const failedSignatureRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (isLoading || user) return;
@@ -192,8 +204,39 @@ const PaymentContent = () => {
         [section]: sectionData,
       };
     });
+    // Editing a field clears its own error (re-shown on blur/submit if still invalid)
+    const path = `${section}.${field}` as FieldPath;
+    setErrors((prev) => {
+      if (!prev[path]) return prev;
+      const next = { ...prev };
+      delete next[path];
+      return next;
+    });
     // Priced field change invalidates any open checkout session
     setClientSecret(null);
+  };
+
+  /**
+   * Blur validates that field; changing pickup date/time also re-checks the
+   * dependent drop-off comparison so stale cross-errors clear themselves.
+   */
+  const handleBlurField = (path: string) => {
+    const targets: FieldPath[] = [path as FieldPath];
+    if (
+      path === "rentalInfo.pickup.date" ||
+      path === "rentalInfo.pickup.time"
+    ) {
+      targets.push("rentalInfo.dropoff.date", "rentalInfo.dropoff.time");
+    }
+    setErrors((prev) => {
+      const next = { ...prev };
+      for (const target of targets) {
+        const message = validateField(target, formData);
+        if (message) next[target] = message;
+        else delete next[target];
+      }
+      return next;
+    });
   };
 
   const handleCheckboxChange = (field: keyof FormData, value: boolean) => {
@@ -201,6 +244,11 @@ const PaymentContent = () => {
       ...prevData,
       [field]: value,
     }));
+    // Unchecking terms reverts the prepared checkout; re-check re-prepares
+    if (field === "agreedToTerms" && !value) {
+      preparedSignatureRef.current = null;
+      setClientSecret(null);
+    }
   };
 
   const handleApplyPromo = () => {
@@ -216,24 +264,13 @@ const PaymentContent = () => {
     }
   };
 
-  const handleSubmit = async () => {
-    if (!selectedCar || !carId) {
-      setStatusMessage(
-        "Please go back and select a car before confirming."
-      );
-      return;
-    }
-    if (!canQuote || !activeQuote) {
-      setSubmitError(
-        "Please fill in pickup and dropoff details before confirming."
-      );
-      return;
-    }
+  // Create booking → Stripe clientSecret → mount card panel (auto + manual)
+  const prepareBooking = useCallback(
+    async (opts: { manual?: boolean } = {}): Promise<void> => {
+      if (prepareLockRef.current) return;
 
-    setIsSubmitting(true);
-    setSubmitError(null);
-    try {
-      const session = await createBooking({
+      // Exact payload that would be POSTed — dedupe key for prepare runs
+      const signature = JSON.stringify({
         carId,
         pickup: formData.rentalInfo.pickup,
         dropoff: formData.rentalInfo.dropoff,
@@ -242,38 +279,126 @@ const PaymentContent = () => {
         billingPhone: formData.billingInfo.phone,
         billingAddress: formData.billingInfo.address,
         billingCity: formData.billingInfo.city,
-        agreedToTerms: formData.agreedToTerms,
         agreedToMarketing: formData.agreedToMarketing,
       });
-      setClientSecret(session.clientSecret);
-      // Scroll Stripe card form into view after booking is created
-      window.setTimeout(() => {
-        document
-          .querySelector("[data-pay-panel]")
-          ?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 50);
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 409) {
-        setSubmitError(
-          "This car is already booked for the selected dates. Please pick different dates or another car."
-        );
-      } else if (err instanceof ApiError && err.status === 401) {
-        setSubmitError(
-          "You need to be signed in to book. Please log in and try again."
-        );
-      } else if (err instanceof ApiError && err.status === 422) {
-        setSubmitError(
-          typeof err.message === "string"
-            ? err.message
-            : "Please check the form fields and try again."
-        );
-      } else {
-        setSubmitError("Something went wrong creating your booking. Please try again.");
+
+      if (
+        !opts.manual &&
+        (clientSecret ||
+          preparedSignatureRef.current === signature ||
+          failedSignatureRef.current === signature)
+      ) {
+        return;
       }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+
+      if (!selectedCar || !carId) {
+        setStatusMessage(
+          "Please go back and select a car before confirming."
+        );
+        return;
+      }
+
+      // Full validation → inline errors + focus first invalid field
+      const allErrors = validateForm(formData);
+      if (Object.keys(allErrors).length > 0) {
+        setErrors(allErrors);
+        const firstInvalid = FIELD_ORDER.find((path) => allErrors[path]);
+        if (firstInvalid) {
+          document.getElementById(fieldElementId(firstInvalid))?.focus();
+        }
+        return;
+      }
+      setErrors({});
+
+      if (!canQuote || !activeQuote) {
+        setSubmitError(
+          activeQuoteError || "Please wait for the price to update before confirming."
+        );
+        return;
+      }
+
+      prepareLockRef.current = true;
+      setIsSubmitting(true);
+      setSubmitError(null);
+      try {
+        const session = await createBooking({
+          carId,
+          pickup: formData.rentalInfo.pickup,
+          dropoff: formData.rentalInfo.dropoff,
+          promoCode: appliedPromo,
+          billingName: formData.billingInfo.name,
+          billingPhone: formData.billingInfo.phone,
+          billingAddress: formData.billingInfo.address,
+          billingCity: formData.billingInfo.city,
+          agreedToTerms: formData.agreedToTerms,
+          agreedToMarketing: formData.agreedToMarketing,
+        });
+        preparedSignatureRef.current = signature;
+        failedSignatureRef.current = null;
+        setClientSecret(session.clientSecret);
+        // Scroll Stripe card form into view after booking is created
+        window.setTimeout(() => {
+          document
+            .querySelector("[data-pay-panel]")
+            ?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 50);
+      } catch (err) {
+        failedSignatureRef.current = signature;
+        if (err instanceof ApiError && err.status === 409) {
+          setSubmitError(
+            "This car is already booked for the selected dates. Please pick different dates or another car."
+          );
+        } else if (err instanceof ApiError && err.status === 401) {
+          setSubmitError(
+            "You need to be signed in to book. Please log in and try again."
+          );
+        } else if (err instanceof ApiError && err.status === 422) {
+          setSubmitError(
+            typeof err.message === "string"
+              ? err.message
+              : "Please check the form fields and try again."
+          );
+        } else {
+          setSubmitError("Something went wrong creating your booking. Please try again.");
+        }
+      } finally {
+        prepareLockRef.current = false;
+        setIsSubmitting(false);
+      }
+    },
+    [
+      selectedCar,
+      carId,
+      formData,
+      appliedPromo,
+      canQuote,
+      activeQuote,
+      activeQuoteError,
+      clientSecret,
+    ]
+  );
+
+  // Auto-prepare: valid form + terms + settled quote → panel mounts itself
+  useEffect(() => {
+    if (clientSecret || !formData.agreedToTerms || isSubmitting) return;
+    if (!canQuote || !activeQuote || isQuoting) return;
+    const timer = window.setTimeout(() => {
+      if (Object.keys(validateForm(formData)).length > 0) return;
+      void prepareBooking();
+    }, 700);
+    return () => window.clearTimeout(timer);
+  }, [
+    clientSecret,
+    formData,
+    appliedPromo,
+    canQuote,
+    activeQuote,
+    isQuoting,
+    isSubmitting,
+    carId,
+    selectedCar,
+    prepareBooking,
+  ]);
 
   const messageIsSuccess =
     statusMessage === "Your rental has been confirmed!";
@@ -292,14 +417,22 @@ const PaymentContent = () => {
         <div className="flex min-w-0 flex-1 flex-col gap-6">
           <BillingInfo
             formData={formData.billingInfo}
+            errors={errors}
             onInputChange={(field: string, value: string) =>
               handleInputChange("billingInfo", field, value)
+            }
+            onBlurField={(field: string) =>
+              handleBlurField(`billingInfo.${field}`)
             }
           />
           <RentalInfo
             formData={formData.rentalInfo}
+            errors={errors}
             onInputChange={(field: string, value: string) =>
               handleInputChange("rentalInfo", field, value)
+            }
+            onBlurField={(field: string) =>
+              handleBlurField(`rentalInfo.${field}`)
             }
           />
           <PaymentMethods />
@@ -313,7 +446,7 @@ const PaymentContent = () => {
             <Confirmation
               formData={formData}
               onCheckboxChange={handleCheckboxChange}
-              onSubmit={handleSubmit}
+              onSubmit={() => prepareBooking({ manual: true })}
               isSubmitting={isSubmitting}
             />
           )}

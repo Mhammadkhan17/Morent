@@ -37,11 +37,19 @@ class FakeSessions:
     def __init__(self) -> None:
         self._n = 0
         self.created_params: list = []
+        self.expired_ids: list[str] = []
 
     async def create_async(self, params=None, options=None):
         self._n += 1
         self.created_params.append(params)
         return FakeCheckoutSession(self._n)
+
+    async def expire_async(self, session_id, params=None, options=None):
+        self.expired_ids.append(session_id)
+        s = FakeCheckoutSession(0)
+        s.id = session_id
+        s.status = "expired"
+        return s
 
     async def retrieve_async(self, session_id, params=None, options=None):
         if not session_id.startswith("cs_test_"):
@@ -62,6 +70,9 @@ class FakeStripeService:
 
     async def create_checkout_session(self, params):
         return await self.sessions.create_async(params=params)
+
+    async def expire_checkout_session(self, session_id):
+        return await self.sessions.expire_async(session_id)
 
     async def retrieve_checkout_session(self, session_id):
         return await self.sessions.retrieve_async(session_id)

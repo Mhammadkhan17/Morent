@@ -597,3 +597,52 @@ User-requested new page (explicit override of the "no new pages" polish rule):
 - Search field in header is decorative (no search behavior yet).
 - Explore capacity counts are global, not faceted with other filters.
 - Decline-card path (`4000000000000002`) still a manual spot-check.
+
+### Navbar / hero / payment UX fix batch (2026-10-19)
+
+Temporary fix plan (`FIX-PLAN.md`, phases A–F) — all done, gated:
+
+- **Backend — supersede own pending** (kills the self-409 after the first
+  "Rent now"): `create_booking` excludes the caller's pending rows from the
+  overlap check, then cancels their own same-car pending bookings via
+  `transition(actor="superseded")` (no notifications) and expires the old
+  Stripe Checkout session (`sessions.expire_async`, best-effort). Validation
+  runs before any mutation — someone else's hold still 409s and leaves yours
+  untouched. TDD: 2 new tests → pytest **91/91** · ruff clean.
+- **Navbar**: dead icon trio removed. Actions row (desktop **and** mobile
+  sheet) = FavoritesMenu (localStorage + `useSyncExternalStore`, count badge,
+  dropdown of saved cars → `/cars/[id]`, empty-state hint) · the one real
+  NotificationBell (signed-in only) · SettingsMenu (Light/Dark/System theme,
+  persisted, pre-hydration script in root layout → no flash). AuthArea
+  slimmed to avatar-as-dropdown (name + email, Admin for owner, Sign out).
+  Car-detail heart now persists to the favorites store.
+- **Hero**: `TopSection` owns a `max-w-[1376px]` container (640+640+32+64) →
+  both cards exactly **640×360** at `lg`; text block absolutely overlaid
+  top-left on the card face, car image anchored bottom-right, CTA inside the
+  text block on both cards.
+- **Payment validation**: new `app/Payment/validation.ts` (name ≥2 · phone
+  pattern · address/city · location/date/time · no past dates · drop-off ≥
+  pickup, same-day time must be later). Inline `role="alert"` errors under
+  each field with `aria-invalid` + `aria-describedby` + destructive border,
+  shown on **blur**; editing a field clears its error; submit validates all
+  and focuses the first invalid control.
+- **Payment auto-prepare**: `handleSubmit` → `prepareBooking()` (wrapped in
+  `useCallback`); valid form + terms + settled quote → 700ms-debounced
+  auto-POST creates the booking → `clientSecret` → Stripe card panel mounts
+  and scrolls into view (no first-"Rent now" dead air). Payload-signature
+  dedupe blocks double POSTs; failed payloads don't auto-retry until edited;
+  unchecking terms reverts the panel; "Rent now" remains the manual trigger
+  ("Processing…" while a prepare runs). Backend phase A supersedes the old
+  pending on re-prepare instead of 409-ing yourself.
+- **Gates**: backend ruff clean · pytest **91/91** · frontend lint clean ·
+  tsc clean · build green · vitest **15/15** · live: `/` 200 with new header
+  actions + 640×360 hero markup. `/Payment` click-through pending (auth).
+- **Follow-up fixes from dev-server feedback**: `useFavorites` server snapshot
+  now cached (`getFavorites` ×3 + shared `EMPTY`) — killed the
+  `getServerSnapshot should be cached` infinite-loop console error; `<html>`
+  got `suppressHydrationWarning` (pre-hydration theme script legitimately
+  adds `dark` before React hydrates); dark-mode conflicts resolved — hero
+  right card pinned `dark:bg-zinc-900` (token `bg-foreground` flips to white
+  under `text-white`), `color-scheme: light/dark` on `:root`/`.dark` (native
+  date/time inputs + scrollbars follow the theme), Stripe PaymentElement now
+  mounts with `theme: "night"` in dark mode.

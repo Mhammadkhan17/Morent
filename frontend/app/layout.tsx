@@ -6,6 +6,7 @@ import { Footer } from "./components/footer";
 import { AuthProvider } from "@/lib/AuthProvider";
 import NotificationToasts from "./components/NotificationToasts";
 import { RentalDataProvider } from "./context/RentalDataContext"; // Import the context provider
+import { THEME_INIT_SCRIPT } from "@/lib/theme";
 
 const sans = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -25,8 +26,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={sans.variable}>
+      <html
+        lang="en"
+        className={sans.variable}
+        suppressHydrationWarning
+      >
       <body className="font-sans antialiased">
+        {/* Stored/system theme before first paint — no flash of wrong theme */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <AuthProvider>
           <RentalDataProvider>
             <MainHeader />

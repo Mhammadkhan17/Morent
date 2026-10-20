@@ -10,6 +10,8 @@ import {
 } from "@/components/ui/card";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+import type { FieldErrors } from "./validation";
 
 interface BillingInfoProps {
   formData: {
@@ -18,10 +20,17 @@ interface BillingInfoProps {
     address: string;
     city: string;
   };
+  errors: FieldErrors;
   onInputChange: (field: string, value: string) => void;
+  onBlurField: (field: string) => void;
 }
 
-const BillingInfo = ({ formData, onInputChange }: BillingInfoProps) => {
+const BillingInfo = ({
+  formData,
+  errors,
+  onInputChange,
+  onBlurField,
+}: BillingInfoProps) => {
   const fields = [
     { key: "name", label: "Name", type: "text", placeholder: "Your name" },
     {
@@ -59,20 +68,37 @@ const BillingInfo = ({ formData, onInputChange }: BillingInfoProps) => {
       <CardContent>
         <form>
           <FieldGroup className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
-            {fields.map(({ key, label, type, placeholder }) => (
-              <Field key={key}>
-                <FieldLabel htmlFor={`billing-${key}`}>{label}</FieldLabel>
-                <Input
-                  type={type}
-                  id={`billing-${key}`}
-                  name={key}
-                  placeholder={placeholder}
-                  value={formData[key] || ""}
-                  onChange={(event) => onInputChange(key, event.target.value)}
-                  required
-                />
-              </Field>
-            ))}
+            {fields.map(({ key, label, type, placeholder }) => {
+              const error = errors[`billingInfo.${key}`];
+              const errorId = `billing-${key}-error`;
+              return (
+                <Field key={key}>
+                  <FieldLabel htmlFor={`billing-${key}`}>{label}</FieldLabel>
+                  <Input
+                    type={type}
+                    id={`billing-${key}`}
+                    name={key}
+                    placeholder={placeholder}
+                    value={formData[key] || ""}
+                    onChange={(event) => onInputChange(key, event.target.value)}
+                    onBlur={() => onBlurField(key)}
+                    aria-invalid={error ? true : undefined}
+                    aria-describedby={error ? errorId : undefined}
+                    className={cn(error && "border-destructive")}
+                    required
+                  />
+                  {error && (
+                    <p
+                      id={errorId}
+                      role="alert"
+                      className="text-sm text-destructive"
+                    >
+                      {error}
+                    </p>
+                  )}
+                </Field>
+              );
+            })}
           </FieldGroup>
         </form>
       </CardContent>

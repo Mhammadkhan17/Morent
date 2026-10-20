@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BellDot, Heart, Menu, Search, Settings } from "lucide-react";
+import { Menu, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   InputGroup,
@@ -17,6 +17,9 @@ import {
 } from "@/components/ui/sheet";
 import Logo from "./logo";
 import AuthArea from "./AuthArea";
+import FavoritesMenu from "./FavoritesMenu";
+import NotificationBell from "./NotificationBell";
+import SettingsMenu from "./SettingsMenu";
 
 const navLinks = [
   { label: "Explore", href: "/explore" },
@@ -24,11 +27,14 @@ const navLinks = [
   { label: "Recommended", href: "/#recommended" },
 ];
 
-const actionButtons = [
-  { label: "Favorites", Icon: Heart },
-  { label: "Notifications", Icon: BellDot },
-  { label: "Settings", Icon: Settings },
-];
+/** Real actions: favorites, notifications, appearance (replaces dead icon trio). */
+const HeaderActions = () => (
+  <>
+    <FavoritesMenu />
+    <NotificationBell />
+    <SettingsMenu />
+  </>
+);
 
 const SearchField = () => (
   <InputGroup className="h-11">
@@ -72,17 +78,7 @@ const MainHeader = () => {
 
         <div className="ml-auto flex items-center gap-1 sm:gap-2">
           <div className="hidden items-center gap-1 sm:flex">
-            {actionButtons.map(({ label, Icon }) => (
-              <Button
-                key={label}
-                variant="ghost"
-                size="icon"
-                aria-label={label}
-                className="text-muted-foreground"
-              >
-                <Icon />
-              </Button>
-            ))}
+            <HeaderActions />
           </div>
 
           <AuthArea />
@@ -127,17 +123,7 @@ const MainHeader = () => {
               </nav>
 
               <div className="flex items-center gap-1">
-                {actionButtons.map(({ label, Icon }) => (
-                  <Button
-                    key={label}
-                    variant="ghost"
-                    size="icon"
-                    aria-label={label}
-                    className="text-muted-foreground"
-                  >
-                    <Icon />
-                  </Button>
-                ))}
+                <HeaderActions />
               </div>
             </SheetContent>
           </Sheet>

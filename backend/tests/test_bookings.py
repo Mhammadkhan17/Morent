@@ -149,3 +149,56 @@ async def test_list_only_own_bookings(client, seeded_car, db_session):
     bookings = (await client.get("/api/v1/bookings")).json()
     assert len(bookings) == 1
     assert bookings[0]["userId"] == "user_test_1"
+
+
+@pytest.mark.asyncio
+async def test_rebook_supersedes_own_pending(client, seeded_car, fake_stripe):
+    """Retrying/editing my own booking on the same car cancels the old
+    pending booking and expires its Stripe session instead of 409ing."""
+    resp1 = await client.post("/api/v1/bookings", json=booking_body())
+    assert resp1.status_code == 201
+    old_session_id = resp1.json()["sessionId"]
+
+    body = booking_body()
+    body["pickup"]["date"] = future(20)
+    body["dropoff"]["date"] = future(23)
+    resp2 = await client.post("/api/v1/bookings", json=body)
+    assert resp2.status_code == 201
+    new_session_id = resp2.json()["sessionId"]
+    assert new_session_id != old_session_id
+
+    bookings = (await client.get("/api/v1/bookings")).json()
+    assert len(bookings) == 2
+    assert sorted(b["status"] for b in bookings) == ["cancelled", "pending"]
+    assert old_session_id in fake_stripe.sessions.expired_ids
+    assert new_session_id not in fake_stripe.sessions.expired_ids
+
+
+@pytest.mark.asyncio
+async def test_failed_rebook_keeps_existing_pending(
+    client, seeded_car, db_session, fake_stripe
+):
+    """Availability is checked BEFORE superseding: a 409 from someone else's
+    pending must leave my pending (and its session) untouched."""
+    resp1 = await client.post("/api/v1/bookings", json=booking_body())
+    assert resp1.status_code == 201
+    old_session_id = resp1.json()["sessionId"]
+
+    blocked_start = date.today() + timedelta(days=30)
+    await _seed_booking(
+        db_session,
+        pickup=blocked_start,
+        dropoff=blocked_start + timedelta(days=2),
+        status="pending",
+    )
+
+    body = booking_body()
+    body["pickup"]["date"] = blocked_start.isoformat()
+    body["dropoff"]["date"] = (blocked_start + timedelta(days=2)).isoformat()
+    resp2 = await client.post("/api/v1/bookings", json=body)
+    assert resp2.status_code == 409
+
+    mine = (await client.get("/api/v1/bookings")).json()
+    assert len(mine) == 1
+    assert mine[0]["status"] == "pending"
+    assert old_session_id not in fake_stripe.sessions.expired_ids

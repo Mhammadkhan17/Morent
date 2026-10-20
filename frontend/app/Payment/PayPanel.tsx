@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CircleX } from "lucide-react";
+import { getThemeSetting, resolveDark } from "@/lib/theme";
 
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
@@ -29,6 +30,13 @@ const APPEARANCE = {
     borderRadius: "8px",
     fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif',
   },
+};
+
+/** Night theme follows the app's dark mode (computed at panel mount). */
+const stripeAppearance = () => {
+  const dark =
+    typeof document !== "undefined" && resolveDark(getThemeSetting());
+  return dark ? { ...APPEARANCE, theme: "night" as const } : APPEARANCE;
 };
 
 const CheckoutForm = ({
@@ -161,7 +169,7 @@ const PayPanel = ({
     options={{
       clientSecret,
       elementsOptions: {
-        appearance: APPEARANCE,
+        appearance: stripeAppearance(),
       },
     }}
   >

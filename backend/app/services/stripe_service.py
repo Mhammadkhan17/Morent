@@ -19,6 +19,10 @@ class StripeService:
     async def retrieve_checkout_session(self, session_id: str) -> Any:
         return await self.client.v1.checkout.sessions.retrieve_async(session_id)
 
+    async def expire_checkout_session(self, session_id: str) -> Any:
+        """Close an open session so it can never be paid (superseded booking)."""
+        return await self.client.v1.checkout.sessions.expire_async(session_id)
+
 
 def get_stripe_service() -> StripeService:
     return StripeService(settings.stripe_secret_key)
