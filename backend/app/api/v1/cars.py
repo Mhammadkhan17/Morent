@@ -22,7 +22,7 @@ async def list_cars(session: SessionDep) -> list[CarRead]:
 @cars_router.get("/{car_id}")
 async def get_car(car_id: str, session: SessionDep) -> CarRead:
     car = await session.get(Car, car_id)
-    if car is None:
+    if car is None or car.status != "available":
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Car not found"
         )

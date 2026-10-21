@@ -2,7 +2,9 @@ from datetime import date
 from typing import Any
 from uuid import uuid4
 
+import stripe
 from fastapi import HTTPException, status
+from sqlalchemy import or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -61,16 +63,22 @@ async def assert_no_overlap(
     exclude_user_id: str | None = None,
 ) -> None:
     """Block when ANY other hold overlaps. The caller's own pending rows are
-    excluded only when a supersede follows (retry/edit of their own booking)."""
-    result = await session.exec(
-        select(Booking).where(
-            Booking.car_id == car_id,
-            Booking.status.in_(("pending", "confirmed", "active")),
-            Booking.pickup_date <= dropoff_date,
-            Booking.dropoff_date >= pickup_date,
-            *([Booking.user_id != exclude_user_id] if exclude_user_id else []),
+    excluded only when a supersede follows (retry/edit of their own booking);
+    their confirmed/active rows still conflict."""
+    conds = [
+        Booking.car_id == car_id,
+        Booking.status.in_(("pending", "confirmed", "active")),
+        Booking.pickup_date <= dropoff_date,
+        Booking.dropoff_date >= pickup_date,
+    ]
+    if exclude_user_id:
+        conds.append(
+            or_(
+                Booking.user_id != exclude_user_id,
+                Booking.status != "pending",
+            )
         )
-    )
+    result = await session.exec(select(Booking).where(*conds))
     if result.first() is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -104,7 +112,8 @@ async def supersede_own_pending(
                     booking.stripe_session_id
                 )
                 expired.append(booking.stripe_session_id)
-            except Exception:  # session already expired/complete — keep going
+            except stripe.InvalidRequestError:
+                # session already expired/complete — keep going
                 pass
         await transition(session, booking, "cancelled", actor="superseded")
     return expired

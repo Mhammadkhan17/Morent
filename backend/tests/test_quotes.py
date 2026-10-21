@@ -60,3 +60,41 @@ async def test_quote_dropoff_before_pickup_422(client, seeded_car):
     resp = await client.post("/api/v1/quotes", json=body)
     assert resp.status_code == 422
     assert resp.json()["detail"][0]["loc"] == ["body", "dropoffDate"]
+
+
+async def _seed_hidden_car(db_session) -> None:
+    from decimal import Decimal
+
+    from app.models import Car
+
+    db_session.add(
+        Car(
+            id="hidden_van",
+            name="Hidden Van",
+            type="MPV",
+            description="Retired from catalogue",
+            fuel_capacity="50L",
+            transmission="Automatic",
+            seating_capacity="8",
+            price_per_day=Decimal("70.00"),
+            image_url="https://example.com/van.png",
+            images=["https://example.com/van.png"],
+            tags=["MPV"],
+            status="hidden",
+        )
+    )
+    await db_session.commit()
+
+
+async def test_quote_hidden_car_404(client, db_session):
+    await _seed_hidden_car(db_session)
+    body = quote_body()
+    body["carId"] = "hidden_van"
+    resp = await client.post("/api/v1/quotes", json=body)
+    assert resp.status_code == 404
+
+
+async def test_car_detail_hidden_404(client, db_session):
+    await _seed_hidden_car(db_session)
+    resp = await client.get("/api/v1/cars/hidden_van")
+    assert resp.status_code == 404

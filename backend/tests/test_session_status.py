@@ -31,3 +31,19 @@ async def test_session_status_unknown_session_404(client):
 async def test_session_status_requires_session_id(client):
     resp = await client.get("/api/v1/checkout/session-status")
     assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_session_status_stripe_outage_500(client, fake_stripe, monkeypatch):
+    """Only genuine not-found maps to 404; outages surface as 5xx so the
+    return page can say retry instead of 'session not found'."""
+
+    async def boom(session_id, *args, **kwargs):
+        raise RuntimeError("stripe unreachable")
+
+    monkeypatch.setattr(fake_stripe, "retrieve_checkout_session", boom)
+    with pytest.raises(RuntimeError, match="stripe unreachable"):
+        await client.get(
+            "/api/v1/checkout/session-status",
+            params={"session_id": "cs_test_open"},
+        )

@@ -4,6 +4,7 @@ from decimal import Decimal
 
 import pytest
 import pytest_asyncio
+import stripe
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlmodel import SQLModel
@@ -53,7 +54,9 @@ class FakeSessions:
 
     async def retrieve_async(self, session_id, params=None, options=None):
         if not session_id.startswith("cs_test_"):
-            raise RuntimeError("No such checkout session")
+            raise stripe.InvalidRequestError(
+                message="No such checkout session", param="id"
+            )
         s = FakeCheckoutSession(0)
         s.id = session_id
         if "complete" in session_id or "paid" in session_id:

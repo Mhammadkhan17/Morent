@@ -9,6 +9,10 @@ from app.core.db import engine
 
 
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    if not settings.stripe_webhook_secret:
+        raise RuntimeError(
+            "STRIPE_WEBHOOK_SECRET is not set — refusing to start"
+        )
     yield
     await engine.dispose()
 

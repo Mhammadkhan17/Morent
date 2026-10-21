@@ -88,6 +88,26 @@ async def test_overlap_returns_409(client, seeded_car, db_session):
 
 
 @pytest.mark.asyncio
+async def test_own_confirmed_overlap_409(client, seeded_car, db_session):
+    """The caller's own *confirmed* booking blocks a second overlapping
+    booking — only own *pending* rows are superseded, never ignored."""
+    start = date.today() + timedelta(days=30)
+    await _seed_booking(
+        db_session,
+        pickup=start,
+        dropoff=start + timedelta(days=2),
+        status="confirmed",
+        user_id="user_test_1",
+    )
+
+    body = booking_body()
+    body["pickup"]["date"] = start.isoformat()
+    body["dropoff"]["date"] = (start + timedelta(days=2)).isoformat()
+    resp = await client.post("/api/v1/bookings", json=body)
+    assert resp.status_code == 409
+
+
+@pytest.mark.asyncio
 async def test_adjacent_non_overlapping_ok(client, seeded_car, db_session):
     """Closed-interval plan rule: existing [30, 32] blocks same start;
     a booking starting after dropoff day must succeed."""
@@ -202,3 +222,34 @@ async def test_failed_rebook_keeps_existing_pending(
     assert len(mine) == 1
     assert mine[0]["status"] == "pending"
     assert old_session_id not in fake_stripe.sessions.expired_ids
+
+
+async def test_supersede_expire_failure_aborts(
+    client, seeded_car, db_session, fake_stripe, monkeypatch
+):
+    """If the Stripe session cannot be expired, the old pending booking must
+    NOT be cancelled (it would stay payable while dead on our side)."""
+    await _seed_booking(
+        db_session,
+        status="pending",
+        user_id="user_test_1",
+        session_id="cs_test_stuck",
+    )
+
+    async def boom(session_id):
+        raise RuntimeError("stripe down")
+
+    monkeypatch.setattr(fake_stripe, "expire_checkout_session", boom)
+
+    with pytest.raises(RuntimeError, match="stripe down"):
+        await client.post("/api/v1/bookings", json=booking_body())
+
+    from sqlmodel import select
+
+    mine = (
+        await db_session.exec(
+            select(Booking).where(Booking.stripe_session_id == "cs_test_stuck")
+        )
+    ).first()
+    assert mine is not None
+    assert mine.status == "pending"

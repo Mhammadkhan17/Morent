@@ -245,6 +245,72 @@ async def test_duplicate_event_id_skips_business_work(
     assert by_id[booking_b.id]["status"] == "pending"
 
 
+async def test_stale_received_event_is_reclaimed_after_crash(
+    client, seeded_car, db_session
+):
+    """Crash drill: process death between claim-commit and completion leaves
+    status='received'. Once the lease expires, the next Stripe retry must
+    re-claim and process it instead of returning 200 forever."""
+    from datetime import UTC, datetime
+
+    await _seed_pending_booking(db_session, session_id="cs_crash_1")
+    db_session.add(
+        WebhookEvent(
+            event_id="evt_crash_1",
+            event_type="checkout.session.completed",
+            status="received",
+            received_at=datetime.now(UTC) - timedelta(seconds=120),
+        )
+    )
+    await db_session.commit()
+
+    event = _event(
+        "cs_crash_1", "checkout.session.completed", event_id="evt_crash_1"
+    )
+    payload, headers = _post(client, event)
+    resp = await client.post(
+        "/api/v1/webhooks/stripe", content=payload, headers=headers
+    )
+    assert resp.status_code == 200
+
+    bookings = (await client.get("/api/v1/bookings")).json()
+    assert bookings[0]["status"] == "confirmed"
+    row = await db_session.get(WebhookEvent, "evt_crash_1")
+    assert row.status == "processed"
+
+
+async def test_fresh_received_event_is_not_reclaimed(
+    client, seeded_car, db_session
+):
+    """A 'received' row younger than the lease is treated as in-flight —
+    a concurrent retry must not double-process."""
+    await _seed_pending_booking(db_session, session_id="cs_inflight_1")
+    db_session.add(
+        WebhookEvent(
+            event_id="evt_inflight_1",
+            event_type="checkout.session.completed",
+            status="received",
+        )
+    )
+    await db_session.commit()
+
+    event = _event(
+        "cs_inflight_1",
+        "checkout.session.completed",
+        event_id="evt_inflight_1",
+    )
+    payload, headers = _post(client, event)
+    resp = await client.post(
+        "/api/v1/webhooks/stripe", content=payload, headers=headers
+    )
+    assert resp.status_code == 200
+
+    bookings = (await client.get("/api/v1/bookings")).json()
+    assert bookings[0]["status"] == "pending"
+    row = await db_session.get(WebhookEvent, "evt_inflight_1")
+    assert row.status == "received"
+
+
 async def test_processing_failure_marks_failed_and_retry_recovers(
     client, seeded_car, db_session, monkeypatch
 ):
@@ -309,3 +375,32 @@ async def test_parallel_duplicate_deliveries_single_payment(
     assert len(rows) == 1
     bookings = (await client.get("/api/v1/bookings")).json()
     assert bookings[0]["status"] == "confirmed"
+
+
+async def test_completed_on_cancelled_booking_writes_no_payment(
+    client, seeded_car, db_session
+):
+    """A late checkout.session.completed for a booking we already cancelled
+    (e.g. superseded/expired) must not attach a succeeded payment row."""
+    from sqlmodel import select
+
+    from app.models import Payment
+
+    booking = await _seed_pending_booking(db_session, session_id="cs_late_1")
+    booking.status = "cancelled"
+    db_session.add(booking)
+    await db_session.commit()
+
+    event = _event("cs_late_1", "checkout.session.completed", payment_status="paid")
+    payload, headers = _post(client, event)
+    resp = await client.post(
+        "/api/v1/webhooks/stripe", content=payload, headers=headers
+    )
+    assert resp.status_code == 200
+
+    await db_session.refresh(booking)
+    assert booking.status == "cancelled"
+    payments = list(
+        (await db_session.exec(select(Payment))).all()
+    )
+    assert payments == []

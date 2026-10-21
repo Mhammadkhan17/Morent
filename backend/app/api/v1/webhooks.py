@@ -1,4 +1,5 @@
 import asyncio
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 from weakref import WeakKeyDictionary
 
@@ -16,6 +17,10 @@ from app.services.booking_status import IllegalTransition, transition
 webhooks_router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
+
+# A 'received' row older than this is considered crashed mid-processing and
+# may be re-claimed by the next Stripe retry (H3 crash-window).
+_RECEIVED_LEASE = timedelta(seconds=60)
 
 _webhook_locks: WeakKeyDictionary[asyncio.AbstractEventLoop, asyncio.Lock] = (
     WeakKeyDictionary()
@@ -75,12 +80,25 @@ async def _upsert_payment(
 
 
 async def _claim_event(session: AsyncSession, event_id: str, event_type: str) -> bool:
+    def claimable(existing: WebhookEvent) -> bool:
+        if existing.status == "failed":
+            return True
+        return (
+            existing.status == "received"
+            and datetime.now(UTC) - existing.received_at > _RECEIVED_LEASE
+        )
+
     result = await session.exec(
         select(WebhookEvent).where(WebhookEvent.event_id == event_id)
     )
     existing = result.first()
     if existing is not None:
-        return existing.status == "failed"
+        if not claimable(existing):
+            return False
+        existing.received_at = datetime.now(UTC)
+        session.add(existing)
+        await session.commit()
+        return True
     session.add(
         WebhookEvent(event_id=event_id, event_type=event_type, status="received")
     )
@@ -92,7 +110,12 @@ async def _claim_event(session: AsyncSession, event_id: str, event_type: str) ->
             select(WebhookEvent).where(WebhookEvent.event_id == event_id)
         )
         existing = result.first()
-        return existing is not None and existing.status == "failed"
+        if existing is None or not claimable(existing):
+            return False
+        existing.received_at = datetime.now(UTC)
+        session.add(existing)
+        await session.commit()
+        return True
     return True
 
 
@@ -149,7 +172,10 @@ async def stripe_webhook(request: Request, session: SessionDep) -> dict[str, str
                     await transition(
                         session, booking, "confirmed", actor="webhook"
                     )
-                if payment_status in ("paid", "no_payment_required"):
+                if (
+                    payment_status in ("paid", "no_payment_required")
+                    and booking.status != "cancelled"
+                ):
                     # stored totals, never re-quote
                     await _upsert_payment(
                         session,

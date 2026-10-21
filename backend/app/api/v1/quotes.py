@@ -17,7 +17,7 @@ SessionDep = Annotated[AsyncSession, Depends(get_session)]
 @quotes_router.post("")
 async def create_quote(payload: QuoteRequest, session: SessionDep) -> QuoteResponse:
     car = await session.get(Car, payload.car_id)
-    if car is None:
+    if car is None or car.status != "available":
         raise HTTPException(status_code=404, detail="Car not found")
 
     promo = await resolve_promo(session, payload.promo_code)

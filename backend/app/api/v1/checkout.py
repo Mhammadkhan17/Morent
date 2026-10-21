@@ -1,5 +1,6 @@
 from typing import Annotated
 
+import stripe
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.schemas.bookings import SessionStatusResponse
@@ -16,7 +17,7 @@ async def session_status(
 ) -> SessionStatusResponse:
     try:
         session_obj = await stripe_service.retrieve_checkout_session(session_id)
-    except Exception as exc:  # stripe errors -> 404-style for the client
+    except stripe.InvalidRequestError as exc:
         raise HTTPException(
             status_code=404, detail="Checkout session not found"
         ) from exc
