@@ -46,10 +46,18 @@ export function saveRentalDraft(draft: RentalDraft): void {
   window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
 }
 
-/** Reads and clears the one-shot draft seeded by the home booking bar. */
-export function consumeRentalDraft(): RentalDraft | null {
+/**
+ * Reads the draft seeded by the home booking bar without clearing it.
+ * The draft survives Payment remounts (auth redirects, back navigation);
+ * it is cleared only once a booking is created.
+ */
+export function readRentalDraft(): RentalDraft | null {
   if (typeof window === "undefined") return null;
-  const raw = window.sessionStorage.getItem(STORAGE_KEY);
+  return parseDraft(window.sessionStorage.getItem(STORAGE_KEY));
+}
+
+/** Clears the draft after the booking is created server-side. */
+export function clearRentalDraft(): void {
+  if (typeof window === "undefined") return;
   window.sessionStorage.removeItem(STORAGE_KEY);
-  return parseDraft(raw);
 }

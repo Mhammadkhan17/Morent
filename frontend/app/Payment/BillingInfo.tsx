@@ -11,7 +11,7 @@ import {
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import type { FieldErrors } from "./validation";
+import { LIMITS, type FieldErrors } from "./validation";
 
 interface BillingInfoProps {
   formData: {
@@ -21,6 +21,8 @@ interface BillingInfoProps {
     city: string;
   };
   errors: FieldErrors;
+  /** Locked while a Stripe checkout session is open (see PayPanel). */
+  disabled?: boolean;
   onInputChange: (field: string, value: string) => void;
   onBlurField: (field: string) => void;
 }
@@ -28,28 +30,42 @@ interface BillingInfoProps {
 const BillingInfo = ({
   formData,
   errors,
+  disabled = false,
   onInputChange,
   onBlurField,
 }: BillingInfoProps) => {
   const fields = [
-    { key: "name", label: "Name", type: "text", placeholder: "Your name" },
+    {
+      key: "name",
+      label: "Name",
+      type: "text",
+      placeholder: "Your name",
+      autoComplete: "name",
+      maxLength: LIMITS.name,
+    },
     {
       key: "phone",
       label: "Phone Number",
       type: "tel",
       placeholder: "Phone number",
+      autoComplete: "tel",
+      maxLength: LIMITS.phone,
     },
     {
       key: "address",
       label: "Address",
       type: "text",
       placeholder: "Address",
+      autoComplete: "street-address",
+      maxLength: LIMITS.address,
     },
     {
       key: "city",
       label: "Town / City",
       type: "text",
       placeholder: "Town or city",
+      autoComplete: "address-level2",
+      maxLength: LIMITS.city,
     },
   ] as const;
 
@@ -68,7 +84,7 @@ const BillingInfo = ({
       <CardContent>
         <form>
           <FieldGroup className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
-            {fields.map(({ key, label, type, placeholder }) => {
+            {fields.map(({ key, label, type, placeholder, autoComplete, maxLength }) => {
               const error = errors[`billingInfo.${key}`];
               const errorId = `billing-${key}-error`;
               return (
@@ -79,9 +95,12 @@ const BillingInfo = ({
                     id={`billing-${key}`}
                     name={key}
                     placeholder={placeholder}
+                    autoComplete={autoComplete}
+                    maxLength={maxLength}
                     value={formData[key] || ""}
                     onChange={(event) => onInputChange(key, event.target.value)}
                     onBlur={() => onBlurField(key)}
+                    disabled={disabled}
                     aria-invalid={error ? true : undefined}
                     aria-describedby={error ? errorId : undefined}
                     className={cn(error && "border-destructive")}

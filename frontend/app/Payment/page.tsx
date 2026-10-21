@@ -22,10 +22,10 @@ import RentalInfo from "./RentalInfo";
 import PayPanel from "./PayPanel";
 import { fetchCar, formatCents } from "@/lib/cars-api";
 import { createBooking, fetchQuote } from "@/lib/bookings";
-import { consumeRentalDraft } from "@/lib/rental-draft";
+import { clearRentalDraft, readRentalDraft } from "@/lib/rental-draft";
 import type { Car, Quote } from "@/lib/types";
 import { useAuth } from "@/lib/AuthProvider";
-import { ApiError } from "@/lib/api";
+import { ApiError, apiErrorMessage, isAbortError } from "@/lib/api";
 import {
   FIELD_ORDER,
   fieldElementId,
@@ -34,6 +34,12 @@ import {
   type FieldErrors,
   type FieldPath,
 } from "./validation";
+
+/** How long we wait for a price before telling the user, rather than showing "…" forever. */
+const QUOTE_TIMEOUT_MS = 10_000;
+/** A booking POST that never returns must not lock the form for good. */
+const BOOKING_TIMEOUT_MS = 20_000;
+const CAR_TIMEOUT_MS = 10_000;
 
 interface FormData {
   billingInfo: {
@@ -67,9 +73,11 @@ const PaymentContent = () => {
   const carId = searchParams.get("carId");
   const [selectedCar, setSelectedCar] = useState<Car | null>(null);
   const [carLoading, setCarLoading] = useState(() => Boolean(carId));
-  const [statusMessage, setStatusMessage] = useState("");
+  const [carError, setCarError] = useState<string | null>(null);
+  const [carAttempt, setCarAttempt] = useState(0);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [quoteError, setQuoteError] = useState("");
+  const [quoteAttempt, setQuoteAttempt] = useState(0);
   const [isQuoting, setIsQuoting] = useState(false);
   const [promoInput, setPromoInput] = useState("");
   const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
@@ -91,7 +99,9 @@ const PaymentContent = () => {
   }, [isLoading, user]);
 
   const [formData, setFormData] = useState<FormData>(() => {
-    const draft = consumeRentalDraft();
+    // Non-destructive read: the draft must survive auth redirects and
+    // remounts; it is cleared only after createBooking succeeds.
+    const draft = readRentalDraft();
     return {
       billingInfo: {
         name: "",
@@ -119,20 +129,50 @@ const PaymentContent = () => {
   useEffect(() => {
     if (!carId) return;
     let cancelled = false;
-    fetchCar(carId)
+    let timedOut = false;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, CAR_TIMEOUT_MS);
+
+    fetchCar(carId, { signal: controller.signal })
       .then((car) => {
-        if (!cancelled) setSelectedCar(car);
+        if (cancelled) return;
+        setSelectedCar(car);
+        setCarError(null);
       })
-      .catch(() => {
-        if (!cancelled) setSelectedCar(null);
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setSelectedCar(null);
+        if (err instanceof ApiError && err.status === 404) {
+          // Genuinely not in the catalogue — the empty state already says so.
+          setCarError(null);
+        } else if (timedOut || isAbortError(err)) {
+          setCarError(
+            "This car took too long to load. Check your connection and try again."
+          );
+        } else {
+          setCarError(
+            apiErrorMessage(err, "We couldn't load this car's details.")
+          );
+        }
       })
       .finally(() => {
+        window.clearTimeout(timeout);
         if (!cancelled) setCarLoading(false);
       });
     return () => {
       cancelled = true;
+      window.clearTimeout(timeout);
+      controller.abort();
     };
-  }, [carId]);
+  }, [carId, carAttempt]);
+
+  const retryCar = () => {
+    setCarLoading(true);
+    setCarAttempt((attempt) => attempt + 1);
+  };
 
   const canQuote = useMemo(() => {
     const { pickup, dropoff } = formData.rentalInfo;
@@ -151,40 +191,67 @@ const PaymentContent = () => {
   useEffect(() => {
     if (!canQuote || !carId) return;
     let cancelled = false;
+    let timedOut = false;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, QUOTE_TIMEOUT_MS);
+
     const timer = window.setTimeout(async () => {
       setIsQuoting(true);
       setQuoteError("");
       try {
-        const result = await fetchQuote({
-          carId,
-          pickup: formData.rentalInfo.pickup,
-          dropoff: formData.rentalInfo.dropoff,
-          promoCode: appliedPromo,
-        });
+        const result = await fetchQuote(
+          {
+            carId,
+            pickup: formData.rentalInfo.pickup,
+            dropoff: formData.rentalInfo.dropoff,
+            promoCode: appliedPromo,
+          },
+          { signal: controller.signal }
+        );
         if (!cancelled) setQuote(result);
       } catch (err) {
-        if (!cancelled) {
-          setQuote(null);
-          if (err instanceof ApiError && Array.isArray(err.message)) {
-            setQuoteError("Invalid quote request");
-          } else {
-            setQuoteError(
-              err instanceof ApiError ? String(err.message) : "Quote failed"
-            );
-          }
-        }
+        if (cancelled) return;
+        setQuote(null);
+        setQuoteError(
+          timedOut
+            ? "Pricing is taking longer than usual. Check your connection and try again."
+            : apiErrorMessage(
+                err,
+                "We couldn't price this rental. Try again in a moment."
+              )
+        );
       } finally {
+        window.clearTimeout(timeout);
         if (!cancelled) setIsQuoting(false);
       }
     }, 400);
+
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
+      window.clearTimeout(timeout);
+      controller.abort();
     };
-  }, [carId, formData.rentalInfo, appliedPromo, canQuote]);
+  }, [carId, formData.rentalInfo, appliedPromo, canQuote, quoteAttempt]);
+
+  // A failed quote recovers on its own once connectivity is back.
+  useEffect(() => {
+    if (!quoteError) return;
+    const handleOnline = () => setQuoteAttempt((attempt) => attempt + 1);
+    window.addEventListener("online", handleOnline);
+    return () => window.removeEventListener("online", handleOnline);
+  }, [quoteError]);
 
   const activeQuote = canQuote ? quote : null;
   const activeQuoteError = canQuote ? quoteError : "";
+
+  const retryQuote = () => {
+    setQuoteError("");
+    setQuoteAttempt((attempt) => attempt + 1);
+  };
 
   const handleInputChange = (
     section: keyof FormData,
@@ -216,6 +283,8 @@ const PaymentContent = () => {
       delete next[path];
       return next;
     });
+    // A past failure may no longer describe what the user is about to submit
+    setSubmitError(null);
     // Priced field change invalidates any open checkout session
     setClientSecret(null);
   };
@@ -258,6 +327,7 @@ const PaymentContent = () => {
   const handleApplyPromo = () => {
     const code = promoInput.trim().toUpperCase();
     setAppliedPromo(code || null);
+    setSubmitError(null);
     setClientSecret(null);
   };
 
@@ -296,8 +366,8 @@ const PaymentContent = () => {
       }
 
       if (!selectedCar || !carId) {
-        setStatusMessage(
-          "Please go back and select a car before confirming."
+        setSubmitError(
+          "No car is attached to this checkout. Pick one from the catalogue first."
         );
         return;
       }
@@ -324,48 +394,71 @@ const PaymentContent = () => {
       prepareLockRef.current = true;
       setIsSubmitting(true);
       setSubmitError(null);
+      const controller = new AbortController();
+      const timeout = window.setTimeout(
+        () => controller.abort(),
+        BOOKING_TIMEOUT_MS
+      );
       try {
-        const session = await createBooking({
-          carId,
-          pickup: formData.rentalInfo.pickup,
-          dropoff: formData.rentalInfo.dropoff,
-          promoCode: appliedPromo,
-          billingName: formData.billingInfo.name,
-          billingPhone: formData.billingInfo.phone,
-          billingAddress: formData.billingInfo.address,
-          billingCity: formData.billingInfo.city,
-          agreedToTerms: formData.agreedToTerms,
-          agreedToMarketing: formData.agreedToMarketing,
-        });
+        const session = await createBooking(
+          {
+            carId,
+            pickup: formData.rentalInfo.pickup,
+            dropoff: formData.rentalInfo.dropoff,
+            promoCode: appliedPromo,
+            billingName: formData.billingInfo.name,
+            billingPhone: formData.billingInfo.phone,
+            billingAddress: formData.billingInfo.address,
+            billingCity: formData.billingInfo.city,
+            agreedToTerms: formData.agreedToTerms,
+            agreedToMarketing: formData.agreedToMarketing,
+          },
+          { signal: controller.signal }
+        );
         preparedSignatureRef.current = signature;
         failedSignatureRef.current = null;
         setClientSecret(session.clientSecret);
-        // Scroll Stripe card form into view after booking is created
+        // Booking now holds the dates server-side — release the local draft
+        clearRentalDraft();
+        // Scroll + move focus to the Stripe card form after booking is created
         window.setTimeout(() => {
-          document
-            .querySelector("[data-pay-panel]")
-            ?.scrollIntoView({ behavior: "smooth", block: "start" });
+          const panel = document.querySelector<HTMLElement>("[data-pay-panel]");
+          panel?.scrollIntoView({ behavior: "smooth", block: "start" });
+          panel?.focus({ preventScroll: true });
         }, 50);
       } catch (err) {
         failedSignatureRef.current = signature;
-        if (err instanceof ApiError && err.status === 409) {
+        const status = err instanceof ApiError ? err.status : undefined;
+        if (isAbortError(err)) {
+          setSubmitError(
+            "Creating your booking took too long. Check your connection and try again — no payment was taken."
+          );
+        } else if (status === 409) {
           setSubmitError(
             "This car is already booked for the selected dates. Please pick different dates or another car."
           );
-        } else if (err instanceof ApiError && err.status === 401) {
+        } else if (status === 401) {
           setSubmitError(
             "You need to be signed in to book. Please log in and try again."
           );
-        } else if (err instanceof ApiError && err.status === 422) {
+        } else if (status === 429) {
           setSubmitError(
-            typeof err.message === "string"
-              ? err.message
-              : "Please check the form fields and try again."
+            "Too many booking attempts. Wait a moment, then try again."
+          );
+        } else if (status === 422) {
+          setSubmitError(
+            apiErrorMessage(err, "Please check the form fields and try again.")
           );
         } else {
-          setSubmitError("Something went wrong creating your booking. Please try again.");
+          setSubmitError(
+            apiErrorMessage(
+              err,
+              "Something went wrong creating your booking. Please try again."
+            )
+          );
         }
       } finally {
+        window.clearTimeout(timeout);
         prepareLockRef.current = false;
         setIsSubmitting(false);
       }
@@ -397,6 +490,7 @@ const PaymentContent = () => {
           <BillingInfo
             formData={formData.billingInfo}
             errors={errors}
+            disabled={Boolean(clientSecret)}
             onInputChange={(field: string, value: string) =>
               handleInputChange("billingInfo", field, value)
             }
@@ -407,6 +501,7 @@ const PaymentContent = () => {
           <RentalInfo
             formData={formData.rentalInfo}
             errors={errors}
+            disabled={Boolean(clientSecret)}
             onInputChange={(field: string, value: string) =>
               handleInputChange("rentalInfo", field, value)
             }
@@ -437,7 +532,8 @@ const PaymentContent = () => {
           )}
         </div>
 
-        <div className="w-full lg:sticky lg:top-6 lg:w-[400px] xl:w-[440px]">
+        {/* Mobile: summary first so the price precedes the confirm/pay stack */}
+        <div className="order-first w-full lg:order-none lg:sticky lg:top-6 lg:w-[400px] xl:w-[440px]">
           {selectedCar ? (
             <RentalSummary
               key={selectedCar.id}
@@ -445,10 +541,12 @@ const PaymentContent = () => {
               quote={activeQuote}
               quoteError={activeQuoteError}
               isQuoting={isQuoting}
+              disabled={Boolean(clientSecret)}
               promoCode={promoInput}
               isPromoApplied={Boolean(appliedPromo)}
               onPromoCodeChange={handlePromoCodeChange}
               onApplyPromo={handleApplyPromo}
+              onRetryQuote={retryQuote}
             />
           ) : (
             <Card>
@@ -457,26 +555,24 @@ const PaymentContent = () => {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground">
-                  Car details not found. Pick a car from the catalogue to see
-                  its rental summary.
+                  {carError ??
+                    "Car details not found. Pick a car from the catalogue to see its rental summary."}
                 </p>
               </CardContent>
-              <CardFooter>
+              <CardFooter className="flex flex-wrap gap-3">
+                {carError && (
+                  <Button type="button" onClick={retryCar}>
+                    Try again
+                  </Button>
+                )}
                 <Button asChild variant="outline">
-                  <Link href="/">Browse cars</Link>
+                  <Link href="/explore">Browse cars</Link>
                 </Button>
               </CardFooter>
             </Card>
           )}
         </div>
       </div>
-
-      {statusMessage && (
-        <Alert className="mt-6" variant="destructive">
-          <CircleX aria-hidden="true" />
-          <AlertDescription>{statusMessage}</AlertDescription>
-        </Alert>
-      )}
     </div>
   );
 };

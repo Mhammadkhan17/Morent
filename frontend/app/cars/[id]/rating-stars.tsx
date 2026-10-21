@@ -20,7 +20,7 @@ const RatingStars = ({
         className={cn(
           "size-4",
           step <= rating
-            ? "fill-current text-yellow-500"
+            ? "fill-current text-primary"
             : "text-muted-foreground/30"
         )}
       />

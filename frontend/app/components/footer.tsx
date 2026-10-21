@@ -18,8 +18,8 @@ export const Footer = () => {
           <section>
             <Logo className="mb-4 text-xl" />
             <p className="max-w-xs text-sm leading-relaxed text-muted-foreground md:max-w-sm">
-              Our vision is to provide convenience and help increase your sales
-              business.
+              Car rental by the day — browse the catalogue, get a quote, and
+              book online.
             </p>
           </section>
 

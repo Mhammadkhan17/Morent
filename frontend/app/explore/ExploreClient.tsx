@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CarCard } from "@/app/components/CatalogueCar";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { FieldLegend, FieldSet } from "@/components/ui/field";
 import { Label } from "@/components/ui/label";
@@ -36,25 +37,70 @@ const CAPACITY_OPTIONS = [
   { value: "8+", label: "8 or more" },
 ] as const;
 
+const CAPACITY_VALUES = CAPACITY_OPTIONS.map((o) => o.value);
+
+const validChoice = (
+  raw: string | null,
+  allowed: readonly string[],
+  fallback: string
+): string => (raw && allowed.includes(raw) ? raw : fallback);
+
+const validCapacity = (raw: string | null): CapacityFilter =>
+  raw && (CAPACITY_VALUES as readonly string[]).includes(raw)
+    ? (raw as CapacityFilter)
+    : "all";
+
+const parsePriceParam = (raw: string | null): number | null => {
+  if (raw === null) return null;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+};
+
 const ExploreClient = () => {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  // URL is the source of truth for filters; the slider holds local drag state
+  // only between pointer-down and release.
   const query = (searchParams.get("q") ?? "").trim();
+  const type = validChoice(
+    searchParams.get("type"),
+    ["all", ...TYPE_OPTIONS],
+    "all"
+  );
+  const transmission = validChoice(
+    searchParams.get("transmission"),
+    ["all", ...TRANSMISSION_OPTIONS],
+    "all"
+  );
+  const capacity = validCapacity(searchParams.get("capacity"));
+  const urlPrice = parsePriceParam(searchParams.get("price"));
+
   const [cars, setCars] = useState<Car[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [type, setType] = useState("all");
-  const [transmission, setTransmission] = useState("all");
-  const [capacity, setCapacity] = useState<CapacityFilter>("all");
-  const [maxPrice, setMaxPrice] = useState(1000);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const [dragPrice, setDragPrice] = useState<number | null>(null);
+
+  const updateParams = useCallback(
+    (patch: Record<string, string | null>) => {
+      const params = new URLSearchParams(searchParams.toString());
+      for (const [key, value] of Object.entries(patch)) {
+        if (value === null || value === "") params.delete(key);
+        else params.set(key, value);
+      }
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [searchParams, router, pathname]
+  );
 
   useEffect(() => {
     let cancelled = false;
     fetchCars()
       .then((data) => {
-        if (cancelled) return;
-        setCars(data);
-        const prices = data.map((car) => car.pricePerDay);
-        setMaxPrice(Math.max(...prices, 1));
+        if (!cancelled) setCars(data);
       })
       .catch((err: unknown) => {
         if (!cancelled) {
@@ -69,7 +115,7 @@ const ExploreClient = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [loadAttempt]);
 
   const priceBounds = useMemo(() => {
     if (cars.length === 0) return { min: 0, max: 1000 };
@@ -89,6 +135,11 @@ const ExploreClient = () => {
     return counts;
   }, [cars]);
 
+  const effectiveMaxPrice = Math.min(
+    dragPrice ?? urlPrice ?? priceBounds.max,
+    priceBounds.max
+  );
+
   const filtered = useMemo(
     () =>
       filterCars(cars, {
@@ -96,10 +147,47 @@ const ExploreClient = () => {
         type,
         transmission,
         capacity,
-        maxPrice,
+        maxPrice: effectiveMaxPrice,
       }),
-    [cars, type, transmission, capacity, maxPrice, query]
+    [cars, type, transmission, capacity, effectiveMaxPrice, query]
   );
+
+  const hasActiveFilters =
+    type !== "all" ||
+    transmission !== "all" ||
+    capacity !== "all" ||
+    urlPrice !== null ||
+    query !== "";
+
+  const handleTypeChange = (value: string) => {
+    updateParams({ type: value === "all" ? null : value });
+  };
+
+  const handleTransmissionChange = (value: string) => {
+    updateParams({ transmission: value === "all" ? null : value });
+  };
+
+  const handleCapacityChange = (value: string) => {
+    updateParams({ capacity: value === "all" ? null : value });
+  };
+
+  const handlePriceRelease = (value: number[]) => {
+    setDragPrice(null);
+    updateParams({
+      price: value[0] >= priceBounds.max ? null : String(value[0]),
+    });
+  };
+
+  const handleClearAll = () => {
+    setDragPrice(null);
+    router.replace(pathname, { scroll: false });
+  };
+
+  const handleRetry = () => {
+    setIsLoading(true);
+    setLoadError(null);
+    setLoadAttempt((attempt) => attempt + 1);
+  };
 
   if (isLoading) {
     return (
@@ -125,8 +213,11 @@ const ExploreClient = () => {
       <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <h1 className="mb-6 text-2xl font-bold">Explore cars</h1>
         <Card>
-          <CardContent className="p-10 text-center text-destructive">
-            {loadError}
+          <CardContent className="flex flex-col items-center gap-4 p-10 text-center">
+            <p className="text-destructive">{loadError}</p>
+            <Button variant="outline" onClick={handleRetry}>
+              Try again
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -144,7 +235,7 @@ const ExploreClient = () => {
               <FieldLegend>Type</FieldLegend>
               <RadioGroup
                 value={type}
-                onValueChange={setType}
+                onValueChange={handleTypeChange}
                 className="gap-3"
               >
                 <div className="flex items-center gap-2">
@@ -168,7 +259,7 @@ const ExploreClient = () => {
               <FieldLegend>Transmission</FieldLegend>
               <RadioGroup
                 value={transmission}
-                onValueChange={setTransmission}
+                onValueChange={handleTransmissionChange}
                 className="gap-3"
               >
                 <div className="flex items-center gap-2">
@@ -198,7 +289,7 @@ const ExploreClient = () => {
               <FieldLegend>Capacity</FieldLegend>
               <RadioGroup
                 value={capacity}
-                onValueChange={(value) => setCapacity(value as CapacityFilter)}
+                onValueChange={handleCapacityChange}
                 className="gap-3"
               >
                 <div className="flex items-center gap-2">
@@ -228,15 +319,16 @@ const ExploreClient = () => {
               <FieldLegend className="flex w-full items-center justify-between">
                 <span>Price</span>
                 <span className="text-sm font-semibold text-primary">
-                  {formatMoney(maxPrice)}
+                  {formatMoney(effectiveMaxPrice)}
                 </span>
               </FieldLegend>
               <Slider
-                value={[maxPrice]}
+                value={[effectiveMaxPrice]}
                 min={priceBounds.min}
                 max={priceBounds.max}
                 step={1}
-                onValueChange={(value) => setMaxPrice(value[0])}
+                onValueChange={(value) => setDragPrice(value[0])}
+                onValueCommit={handlePriceRelease}
                 aria-label="Maximum price per day"
               />
               <div className="flex justify-between text-xs text-muted-foreground">
@@ -244,6 +336,15 @@ const ExploreClient = () => {
                 <span>{formatMoney(priceBounds.max)}</span>
               </div>
             </FieldSet>
+
+            <Button
+              variant="outline"
+              className="w-full"
+              disabled={!hasActiveFilters}
+              onClick={handleClearAll}
+            >
+              Clear all filters
+            </Button>
           </CardContent>
         </Card>
 
@@ -266,8 +367,15 @@ const ExploreClient = () => {
 
           {filtered.length === 0 ? (
             <Card>
-              <CardContent className="p-10 text-center text-muted-foreground">
-                No cars match these filters.
+              <CardContent className="flex flex-col items-center gap-4 p-10 text-center">
+                <p className="text-muted-foreground">
+                  No cars match these filters.
+                </p>
+                {hasActiveFilters && (
+                  <Button variant="outline" onClick={handleClearAll}>
+                    Clear all filters
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ) : (

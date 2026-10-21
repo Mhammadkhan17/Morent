@@ -7,7 +7,7 @@ vi.mock("@/lib/auth-client", () => ({
 }));
 
 import { authClient } from "@/lib/auth-client";
-import { ApiError, api } from "@/lib/api";
+import { ApiError, api, apiErrorMessage } from "@/lib/api";
 
 const tokenMock = vi.mocked(authClient.token);
 
@@ -147,5 +147,57 @@ describe("api request shape", () => {
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(init.method).toBe("POST");
     expect(init.body).toBe(JSON.stringify({ carId: "koenigsegg" }));
+  });
+});
+
+describe("apiErrorMessage", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("returns a plain string detail verbatim", () => {
+    expect(
+      apiErrorMessage(new ApiError(409, "Car is not available"), "fallback")
+    ).toBe("Car is not available");
+  });
+
+  it("turns FastAPI's detail array into readable sentences", async () => {
+    mockFetchOnce(
+      {
+        detail: [
+          { loc: ["body", "promoCode"], msg: "Unknown or inactive promo code" },
+        ],
+      },
+      false,
+      422
+    );
+
+    const err = await api.post("/quotes", {}, { auth: false }).catch((e) => e);
+    expect(apiErrorMessage(err, "fallback")).toBe(
+      "Unknown or inactive promo code."
+    );
+  });
+
+  it("says so when the browser is offline instead of blaming the form", () => {
+    vi.stubGlobal("navigator", { onLine: false });
+    expect(apiErrorMessage(new TypeError("Failed to fetch"), "fallback")).toBe(
+      "You're offline. Reconnect to the internet and try again."
+    );
+  });
+
+  it("explains a network failure rather than surfacing the raw error", () => {
+    expect(apiErrorMessage(new TypeError("Failed to fetch"), "fallback")).toBe(
+      "Couldn't reach the server. Check your connection and try again."
+    );
+  });
+
+  it("explains a request that was aborted or timed out", () => {
+    const abort = new Error("The operation was aborted.");
+    abort.name = "AbortError";
+    expect(apiErrorMessage(abort, "fallback")).toMatch(/took too long/);
+  });
+
+  it("falls back to the caller's message for unknown failures", () => {
+    expect(apiErrorMessage(new Error("boom"), "fallback")).toBe("fallback");
   });
 });

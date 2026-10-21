@@ -8,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { CreditCard, Lock, ShieldCheck } from "lucide-react";
+import { CreditCard, Lock } from "lucide-react";
 
 /**
  * Step 3 shell — card/wallet details are entered securely in the
@@ -67,20 +67,9 @@ const PaymentMethod = () => {
 
         <div className="flex items-start gap-3 rounded-lg bg-muted p-4">
           <Lock aria-hidden="true" className="size-5 shrink-0 text-primary" />
-            <p className="text-sm text-muted-foreground">
-              Card details are entered after you press Rent now — we never
-              store them on our servers.
-            </p>
-        </div>
-
-        <div className="flex items-start gap-3 rounded-lg bg-muted p-4">
-          <ShieldCheck
-            aria-hidden="true"
-            className="size-5 shrink-0 text-primary"
-          />
           <p className="text-sm text-muted-foreground">
-            Payments are processed securely. Card details never touch our
-            servers.
+            Card details are entered in Stripe&apos;s form after you press
+            Rent now — they never touch our servers or get stored by us.
           </p>
         </div>
       </CardContent>

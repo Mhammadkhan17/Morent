@@ -3,11 +3,39 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeCar } from "@/test/fixtures";
 
-const sp = vi.hoisted(() => ({ current: new URLSearchParams() }));
+const sp = vi.hoisted(() => {
+  let params = new URLSearchParams();
+  const listeners = new Set<() => void>();
+  return {
+    replace(next: URLSearchParams) {
+      params = next;
+      listeners.forEach((listener) => listener());
+    },
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    getParams: () => params,
+  };
+});
 
-vi.mock("next/navigation", () => ({
-  useSearchParams: () => sp.current,
-}));
+vi.mock("next/navigation", async () => {
+  const { useSyncExternalStore } = await import("react");
+  return {
+    useSearchParams: () =>
+      useSyncExternalStore(
+        (listener) => sp.subscribe(listener),
+        () => sp.getParams()
+      ),
+    useRouter: () => ({
+      replace: (url: string) => {
+        const qs = url.includes("?") ? url.slice(url.indexOf("?") + 1) : "";
+        sp.replace(new URLSearchParams(qs));
+      },
+    }),
+    usePathname: () => "/explore",
+  };
+});
 
 vi.mock("next/link", () => ({
   default: ({
@@ -58,7 +86,7 @@ const cars = [
 
 describe("ExploreClient (M1 search + M3 transmission)", () => {
   beforeEach(() => {
-    sp.current = new URLSearchParams();
+    sp.replace(new URLSearchParams());
     vi.mocked(fetchCars).mockResolvedValue(cars);
   });
 
@@ -75,7 +103,7 @@ describe("ExploreClient (M1 search + M3 transmission)", () => {
   });
 
   it("filters by the q search param and offers Clear search", async () => {
-    sp.current = new URLSearchParams("q=cruiser");
+    sp.replace(new URLSearchParams("q=cruiser"));
     render(<ExploreClient />);
 
     expect(await screen.findByTestId("car-land-cruiser")).toBeInTheDocument();

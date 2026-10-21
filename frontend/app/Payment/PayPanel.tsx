@@ -51,7 +51,7 @@ const CheckoutForm = ({
 
   if (result.type === "loading") {
     return (
-      <Card data-pay-panel>
+      <Card data-pay-panel tabIndex={-1} className="focus:outline-none">
         <CardHeader>
           <CardTitle className="text-lg">Payment</CardTitle>
           <CardDescription>Preparing card form…</CardDescription>
@@ -65,7 +65,7 @@ const CheckoutForm = ({
 
   if (result.type === "error") {
     return (
-      <Card data-pay-panel>
+      <Card data-pay-panel tabIndex={-1} className="focus:outline-none">
         <CardHeader>
           <CardTitle className="text-lg">Payment</CardTitle>
         </CardHeader>
@@ -87,19 +87,26 @@ const CheckoutForm = ({
   const { checkout } = result;
 
   return (
-    <Card data-pay-panel>
+    <Card
+      data-pay-panel
+      tabIndex={-1}
+      className="focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
       <CardHeader>
         <CardTitle className="text-lg">Payment</CardTitle>
         <CardDescription>
-          Enter your card details to finish booking. You&apos;ll be redirected
-          after payment.
+          Enter your card details to finish booking — you&apos;ll be redirected
+          afterwards. Your rental details are locked while this form is open;
+          use Edit booking to change them.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form
           className="flex flex-col gap-4"
+          aria-busy={isPaying}
           onSubmit={async (event) => {
             event.preventDefault();
+            if (isPaying) return;
             setErrorMessage(null);
             setIsPaying(true);
             try {
@@ -133,7 +140,11 @@ const CheckoutForm = ({
               disabled={!checkout.canConfirm || isPaying || !totalLabel}
               className="sm:w-auto"
             >
-              {isPaying ? "Processing…" : `Pay ${totalLabel}`}
+              {isPaying
+                ? "Processing…"
+                : totalLabel
+                  ? `Pay ${totalLabel}`
+                  : "Pay"}
             </Button>
             <Button
               type="button"
@@ -165,7 +176,7 @@ const PayPanel = ({
 }) => {
   if (!stripePromise) {
     return (
-      <Card data-pay-panel>
+      <Card data-pay-panel tabIndex={-1} className="focus:outline-none">
         <CardHeader>
           <CardTitle className="text-lg">Payment</CardTitle>
         </CardHeader>

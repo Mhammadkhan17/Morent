@@ -1,6 +1,5 @@
 "use client";
 import React, { useState } from "react";
-import { ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,6 +27,7 @@ const ConfirmationSection = ({
     e.preventDefault();
     if (!agreedToTerms) {
       setTermsError(true);
+      document.getElementById("terms")?.focus();
       return;
     }
     setTermsError(false);
@@ -41,8 +41,8 @@ const ConfirmationSection = ({
           <div>
             <CardTitle className="text-lg">Confirmation</CardTitle>
             <CardDescription>
-              We are getting to the end. Just a few clicks and your rental is
-              ready!
+              Review your details, accept the terms, then enter card details
+              in the Stripe form.
             </CardDescription>
           </div>
           <Badge variant="secondary">Step 4 of 4</Badge>
@@ -65,8 +65,7 @@ const ConfirmationSection = ({
                 className="mt-0.5"
               />
               <span className="text-sm font-medium leading-relaxed">
-                I agree with sending Marketing and newsletter emails. No spam,
-                promised!
+                Email me about offers and product updates.
               </span>
             </label>
 
@@ -86,6 +85,7 @@ const ConfirmationSection = ({
                     if (checked === true) setTermsError(false);
                   }}
                   aria-invalid={termsError || undefined}
+                  aria-describedby={termsError ? "terms-error" : undefined}
                   className="mt-0.5"
                 />
                 <span className="text-sm font-medium leading-relaxed">
@@ -93,7 +93,7 @@ const ConfirmationSection = ({
                 </span>
               </label>
               {termsError && (
-                <p role="alert" className="mt-2 text-sm text-destructive">
+                <p id="terms-error" role="alert" className="mt-2 text-sm text-destructive">
                   Please agree to the terms and conditions.
                 </p>
               )}
@@ -102,24 +102,10 @@ const ConfirmationSection = ({
 
           <div>
             <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
-              {isSubmitting ? "Processing..." : "Rent now"}
+              {isSubmitting ? "Creating your booking…" : "Rent now"}
             </Button>
           </div>
         </form>
-
-        <div className="flex items-start gap-3 rounded-lg bg-muted p-4">
-          <ShieldCheck
-            aria-hidden="true"
-            className="size-8 shrink-0 text-primary"
-          />
-          <div>
-            <p className="text-sm font-semibold">All your data are safe</p>
-            <p className="text-sm text-muted-foreground">
-              We are using the most advanced security to provide you the best
-              experience ever.
-            </p>
-          </div>
-        </div>
       </CardContent>
     </Card>
   );

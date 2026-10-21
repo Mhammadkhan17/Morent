@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import { LOCATION_OPTIONS } from "@/lib/locations";
 import { cn } from "@/lib/utils";
-import type { FieldErrors } from "./validation";
+import { todayISO, type FieldErrors } from "./validation";
 
 interface PickupDropoffData {
   date: string;
@@ -34,6 +34,8 @@ interface RentalInfoProps {
     dropoff: PickupDropoffData;
   };
   errors: FieldErrors;
+  /** Locked while a Stripe checkout session is open (see PayPanel). */
+  disabled?: boolean;
   onInputChange: (
     field: `pickup.${keyof PickupDropoffData}` | `dropoff.${keyof PickupDropoffData}`,
     value: string
@@ -43,7 +45,13 @@ interface RentalInfoProps {
   ) => void;
 }
 
-const RentalInfo = ({ formData, errors, onInputChange, onBlurField }: RentalInfoProps) => {
+const RentalInfo = ({
+  formData,
+  errors,
+  disabled = false,
+  onInputChange,
+  onBlurField,
+}: RentalInfoProps) => {
   const handleChange = (
     type: "pickup" | "dropoff",
     field: keyof PickupDropoffData,
@@ -95,6 +103,7 @@ const RentalInfo = ({ formData, errors, onInputChange, onBlurField }: RentalInfo
                 >
                   <SelectTrigger
                     id={`${type}-location`}
+                    disabled={disabled}
                     className={cn(
                       "w-full",
                       errors[`rentalInfo.${type}.location`] && "border-destructive"
@@ -130,6 +139,12 @@ const RentalInfo = ({ formData, errors, onInputChange, onBlurField }: RentalInfo
                   type="date"
                   id={`${type}-date`}
                   value={formData[type].date}
+                  min={
+                    type === "pickup" || formData.pickup.date < todayISO()
+                      ? todayISO()
+                      : formData.pickup.date
+                  }
+                  disabled={disabled}
                   onChange={(event) =>
                     handleChange(type, "date", event.target.value)
                   }
@@ -156,6 +171,7 @@ const RentalInfo = ({ formData, errors, onInputChange, onBlurField }: RentalInfo
                   type="time"
                   id={`${type}-time`}
                   value={formData[type].time}
+                  disabled={disabled}
                   onChange={(event) =>
                     handleChange(type, "time", event.target.value)
                   }

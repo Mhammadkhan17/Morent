@@ -200,7 +200,7 @@ const PickUpSection = () => {
   return (
     <section
       aria-label="Booking details"
-      className="mt-10 rounded-2xl border bg-card p-4 sm:p-6"
+      className="mt-10 rounded-xl border bg-card p-4 sm:p-6"
     >
       <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-[1fr_auto_1fr] lg:items-center lg:gap-6">
         <BookingBlock

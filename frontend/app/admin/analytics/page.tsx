@@ -97,12 +97,12 @@ function RevenueChart({
           </text>
         </g>
       ))}
-      {area !== "" && <path d={area} className="fill-primary/10" />}
+      {area !== "" && <path d={area} className="fill-chart-1/10" />}
       {line !== "" && (
         <path
           d={line}
           fill="none"
-          className="stroke-primary"
+          className="stroke-chart-1"
           strokeWidth="2"
           strokeLinejoin="round"
         />
@@ -130,8 +130,10 @@ function RevenueChart({
 
 function BarList({
   items,
+  colorClass = "bg-primary",
 }: {
   items: { key: string; label: string; display: string; ratio: number }[];
+  colorClass?: string;
 }) {
   return (
     <div className="flex flex-col gap-3">
@@ -142,7 +144,7 @@ function BarList({
           </span>
           <div className="h-3 flex-1 overflow-hidden rounded-full bg-muted">
             <div
-              className="h-full rounded-full bg-primary"
+              className={`h-full rounded-full ${colorClass}`}
               style={{ width: `${Math.max(item.ratio * 100, 2)}%` }}
             />
           </div>
@@ -167,20 +169,30 @@ export default function AdminAnalyticsPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     fetchAnalytics(range.from, range.to)
       .then((result) => {
+        if (cancelled) return;
         setData(result);
         setError(null);
       })
       .catch((err: unknown) => {
+        if (cancelled) return;
         setError(err instanceof Error ? err.message : "Failed to load");
       })
       .finally(() => {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       });
+    return () => {
+      cancelled = true;
+    };
   }, [range]);
 
-  const apply = () => setRange({ from, to });
+  const apply = () => {
+    if (isLoading) return;
+    setIsLoading(true);
+    setRange({ from, to });
+  };
 
   const maxBookings = Math.max(
     ...(data?.bookingsByCar ?? []).map((item) => item.bookings),
@@ -222,7 +234,9 @@ export default function AdminAnalyticsPage() {
               className="w-40"
             />
           </div>
-          <Button onClick={apply}>Apply</Button>
+          <Button onClick={apply} disabled={isLoading}>
+            {isLoading ? "Applying…" : "Apply"}
+          </Button>
         </div>
       </div>
 
@@ -262,6 +276,7 @@ export default function AdminAnalyticsPage() {
                   <p className="text-sm text-muted-foreground">No data.</p>
                 ) : (
                   <BarList
+                    colorClass="bg-chart-2"
                     items={data.revenueByWeek.map((week) => {
                       const peak = Math.max(
                         ...data.revenueByWeek.map((w) => w.revenueCents),
@@ -288,6 +303,7 @@ export default function AdminAnalyticsPage() {
                   <p className="text-sm text-muted-foreground">No data.</p>
                 ) : (
                   <BarList
+                    colorClass="bg-chart-4"
                     items={data.bookingsByCar.map((item) => ({
                       key: item.carId,
                       label: item.carName,
@@ -310,6 +326,7 @@ export default function AdminAnalyticsPage() {
                   <p className="text-sm text-muted-foreground">No data.</p>
                 ) : (
                   <BarList
+                    colorClass="bg-chart-5"
                     items={data.utilizationByCar.map((item) => ({
                       key: item.carId,
                       label: item.carName,

@@ -1,5 +1,7 @@
-import { api } from "@/lib/api";
+import { api, type RequestOptions } from "@/lib/api";
 import type { CheckoutSession, Quote } from "@/lib/types";
+
+export type { RequestOptions };
 
 export interface QuoteRequest {
   carId: string;
@@ -9,8 +11,11 @@ export interface QuoteRequest {
 }
 
 /** Public — no JWT. */
-export async function fetchQuote(body: QuoteRequest): Promise<Quote> {
-  return api.post<Quote>("/quotes", body, { auth: false });
+export async function fetchQuote(
+  body: QuoteRequest,
+  options?: RequestOptions
+): Promise<Quote> {
+  return api.post<Quote>("/quotes", body, { auth: false, ...options });
 }
 
 export interface BookingRequest extends QuoteRequest {
@@ -24,16 +29,18 @@ export interface BookingRequest extends QuoteRequest {
 
 /** Authenticated — Bearer JWT required. */
 export async function createBooking(
-  body: BookingRequest
+  body: BookingRequest,
+  options?: RequestOptions
 ): Promise<CheckoutSession> {
-  return api.post<CheckoutSession>("/bookings", body);
+  return api.post<CheckoutSession>("/bookings", body, options);
 }
 
 export async function fetchSessionStatus(
-  sessionId: string
+  sessionId: string,
+  options?: RequestOptions
 ): Promise<{ status: string; paymentStatus: string }> {
   return api.get<{ status: string; paymentStatus: string }>(
     `/checkout/session-status?session_id=${encodeURIComponent(sessionId)}`,
-    { auth: false }
+    { auth: false, ...options }
   );
 }

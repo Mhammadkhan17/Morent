@@ -2,8 +2,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
-  consumeRentalDraft,
+  clearRentalDraft,
   emptyRentalDraft,
+  readRentalDraft,
   saveRentalDraft,
   type RentalDraft,
 } from "@/lib/rental-draft";
@@ -41,29 +42,35 @@ afterEach(() => {
 describe("rental draft", () => {
   it("round-trips a saved draft", () => {
     saveRentalDraft(sample);
-    expect(consumeRentalDraft()).toEqual(sample);
+    expect(readRentalDraft()).toEqual(sample);
   });
 
-  it("is one-shot: consuming clears storage", () => {
+  it("read is non-destructive: remounts keep the draft", () => {
     saveRentalDraft(sample);
-    expect(consumeRentalDraft()).toEqual(sample);
-    expect(consumeRentalDraft()).toBeNull();
+    expect(readRentalDraft()).toEqual(sample);
+    expect(readRentalDraft()).toEqual(sample);
+  });
+
+  it("clear removes the draft after booking succeeds", () => {
+    saveRentalDraft(sample);
+    clearRentalDraft();
+    expect(readRentalDraft()).toBeNull();
   });
 
   it("returns null when nothing was saved", () => {
-    expect(consumeRentalDraft()).toBeNull();
+    expect(readRentalDraft()).toBeNull();
   });
 
   it("returns null for malformed JSON", () => {
     stubWindowSessionStorage({ "morent:rental-draft": "{not json" });
-    expect(consumeRentalDraft()).toBeNull();
+    expect(readRentalDraft()).toBeNull();
   });
 
   it("returns null when sides are missing or wrongly typed", () => {
     stubWindowSessionStorage({
       "morent:rental-draft": JSON.stringify({ pickup: sample.pickup }),
     });
-    expect(consumeRentalDraft()).toBeNull();
+    expect(readRentalDraft()).toBeNull();
 
     stubWindowSessionStorage({
       "morent:rental-draft": JSON.stringify({
@@ -71,7 +78,7 @@ describe("rental draft", () => {
         dropoff: sample.dropoff,
       }),
     });
-    expect(consumeRentalDraft()).toBeNull();
+    expect(readRentalDraft()).toBeNull();
   });
 
   it("emptyRentalDraft matches the Payment initial shape", () => {
@@ -81,9 +88,10 @@ describe("rental draft", () => {
     });
   });
 
-  it("save and consume are no-ops without window (SSR)", () => {
+  it("save and read are no-ops without window (SSR)", () => {
     vi.unstubAllGlobals();
     expect(() => saveRentalDraft(sample)).not.toThrow();
-    expect(consumeRentalDraft()).toBeNull();
+    expect(() => clearRentalDraft()).not.toThrow();
+    expect(readRentalDraft()).toBeNull();
   });
 });

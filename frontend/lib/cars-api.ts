@@ -1,4 +1,4 @@
-import { api } from "@/lib/api";
+import { api, type RequestOptions } from "@/lib/api";
 import type { Car } from "@/lib/types";
 
 export const formatMoney = (amount: number): string =>
@@ -14,6 +14,12 @@ export async function fetchCars(): Promise<Car[]> {
   return api.get<Car[]>("/cars", { auth: false });
 }
 
-export async function fetchCar(id: string): Promise<Car> {
-  return api.get<Car>(`/cars/${encodeURIComponent(id)}`, { auth: false });
+export async function fetchCar(
+  id: string,
+  options?: RequestOptions
+): Promise<Car> {
+  return api.get<Car>(`/cars/${encodeURIComponent(id)}`, {
+    auth: false,
+    ...options,
+  });
 }

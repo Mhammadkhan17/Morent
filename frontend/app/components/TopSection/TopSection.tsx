@@ -27,10 +27,11 @@ const TopSection = () => {
           />
           <div className="absolute inset-x-0 top-0 flex flex-col items-start gap-3 p-6 sm:p-8">
             <h1 className="max-w-[60%] text-2xl font-bold leading-tight text-white sm:text-3xl">
-              The Best Platform for Car Rental
+              Rent a car by the day
             </h1>
             <p className="max-w-[58%] text-sm font-medium leading-relaxed text-white/90 sm:text-base">
-              Ease of doing car rental safely and reliably, and at a low price.
+              Browse the catalogue, get a price quote, and pay securely through
+              Stripe checkout.
             </p>
             <div className="mt-1">
               <Button
@@ -59,11 +60,11 @@ const TopSection = () => {
           />
           <div className="absolute inset-x-0 top-0 flex flex-col items-start gap-3 p-6 sm:p-8">
             <h2 className="max-w-[60%] text-2xl font-bold leading-tight text-white sm:text-3xl">
-              Easy way to rent a car at a low price
+              From quote to booking in one flow
             </h2>
             <p className="max-w-[58%] text-sm font-medium leading-relaxed text-white/90 sm:text-base">
-              Providing cheap car rental services and safe and comfortable
-              facilities.
+              Pickup and drop-off details, server-side pricing, and card
+              payment on a single page.
             </p>
             <div className="mt-1">
               <Button
