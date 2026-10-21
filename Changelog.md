@@ -883,3 +883,31 @@ vitest 22/22 · build; backend ruff · pytest 120.
   initials fallback (L7 done the cheap honest way).
 - **E5 deferred, recorded in `plans/todo.md`** (M13–M16, M20, L2, L3,
   L8, backend `.env` line-15 parse warning — file not read).
+
+## 2026-10-21 — follow-up: frontend component-test infrastructure
+
+- Added jsdom + Testing Library (`@testing-library/react`/`jest-dom`/
+  `user-event`, `@vitejs/plugin-react`, jsdom; bumped `@types/node` ^20 →
+  ^24 to satisfy vitest's peer range). Vitest config: jsdom environment,
+  React plugin, `test/setup.ts` (jest-dom matchers + ResizeObserver stub
+  for Radix Slider).
+- **Extracted the Explore filter predicate** into
+  `lib/explore-filter.ts` (pure `filterCars` + `parseSeats`) —
+  `ExploreClient` now consumes it; logic unchanged, testable without DOM.
+- New tests (22 → 39, all green):
+  - `lib/explore-filter.test.ts` — q name/tag matching (M1), transmission
+    (M3), type, capacity, price, and combined filters (9 tests).
+  - `app/explore/ExploreClient.test.tsx` — renders catalogue, `q`
+    filters + Clear-search affordance, transmission radio narrows the
+    grid (3 tests; `fetchCars`/`CarCard`/navigation mocked).
+  - `app/Payment/PayPanel.test.tsx` — missing publishable key renders the
+    explicit config-error panel + edit-booking escape hatch (M17, 2 tests).
+  - `app/account/load-error.test.tsx` — title/message render, retry
+    button fires `onRetry` (H5, 2 tests).
+  - `lib/rental-draft.test.ts` pinned to node environment (SSR no-op
+    paths need a real no-`window` global).
+- Gates: lint clean · vitest 39/39 · `next build` green.
+- Not covered (by design): full header/`AuthProvider` component tests —
+  deep better-auth import graph; the search form is declarative GET HTML
+  and its behaviour is covered via ExploreClient `q` tests. Playwright
+  checkout E2E stays deferred (M16).

@@ -11,9 +11,12 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Slider } from "@/components/ui/slider";
 import { fetchCars, formatMoney } from "@/lib/cars-api";
+import {
+  filterCars,
+  parseSeats,
+  type CapacityFilter,
+} from "@/lib/explore-filter";
 import type { Car } from "@/lib/types";
-
-const parseSeats = (value: string) => Number.parseInt(value, 10) || 0;
 
 const TYPE_OPTIONS = [
   "Sport",
@@ -32,8 +35,6 @@ const CAPACITY_OPTIONS = [
   { value: "6", label: "6 Person" },
   { value: "8+", label: "8 or more" },
 ] as const;
-
-type CapacityFilter = "all" | "2" | "4" | "6" | "8+";
 
 const ExploreClient = () => {
   const searchParams = useSearchParams();
@@ -88,25 +89,17 @@ const ExploreClient = () => {
     return counts;
   }, [cars]);
 
-  const filtered = useMemo(() => {
-    const q = query.toLowerCase();
-    return cars.filter((car) => {
-      const seats = parseSeats(car.seatingCapacity);
-      const typeOk = type === "all" || car.type === type;
-      const transmissionOk =
-        transmission === "all" || car.transmission === transmission;
-      const capacityOk =
-        capacity === "all" ||
-        (capacity === "8+" ? seats >= 8 : seats === Number(capacity));
-      const queryOk =
-        q === "" ||
-        car.name.toLowerCase().includes(q) ||
-        car.tags.some((tag) => tag.toLowerCase().includes(q));
-      return (
-        typeOk && transmissionOk && capacityOk && queryOk && car.pricePerDay <= maxPrice
-      );
-    });
-  }, [cars, type, transmission, capacity, maxPrice, query]);
+  const filtered = useMemo(
+    () =>
+      filterCars(cars, {
+        query,
+        type,
+        transmission,
+        capacity,
+        maxPrice,
+      }),
+    [cars, type, transmission, capacity, maxPrice, query]
+  );
 
   if (isLoading) {
     return (
