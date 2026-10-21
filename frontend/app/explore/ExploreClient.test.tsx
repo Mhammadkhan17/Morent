@@ -121,5 +121,78 @@ describe("ExploreClient (M1 search + M3 transmission)", () => {
 
     expect(screen.getByTestId("car-land-cruiser")).toBeInTheDocument();
     expect(screen.queryByTestId("car-gt-r")).not.toBeInTheDocument();
+    expect(sp.getParams().get("transmission")).toBe("Manual");
+  });
+
+  it("restores type, transmission, capacity, and price from the URL", async () => {
+    sp.replace(
+      new URLSearchParams("type=SUV&transmission=Manual&capacity=8+&price=500")
+    );
+    render(<ExploreClient />);
+
+    expect(await screen.findByTestId("car-land-cruiser")).toBeInTheDocument();
+    expect(screen.queryByTestId("car-gt-r")).not.toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /suv/i })).toBeChecked();
+    expect(screen.getByRole("radio", { name: /manual/i })).toBeChecked();
+    expect(screen.getByRole("radio", { name: /8 or more/i })).toBeChecked();
+  });
+
+  it("restores the price cap from the URL", async () => {
+    sp.replace(new URLSearchParams("price=150"));
+    render(<ExploreClient />);
+
+    expect(await screen.findByTestId("car-gt-r")).toBeInTheDocument();
+    expect(screen.queryByTestId("car-land-cruiser")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("slider", { name: /maximum price per day/i })
+    ).toHaveAttribute("aria-valuenow", "150");
+  });
+
+  it("ignores unknown filter values instead of crashing", async () => {
+    sp.replace(
+      new URLSearchParams("type=crossover&transmission=cvt&capacity=10&price=free")
+    );
+    render(<ExploreClient />);
+
+    expect(await screen.findByTestId("car-gt-r")).toBeInTheDocument();
+    expect(screen.getByTestId("car-land-cruiser")).toBeInTheDocument();
+  });
+
+  it("clears every filter from the sidebar", async () => {
+    const user = userEvent.setup();
+    sp.replace(new URLSearchParams("type=SUV&price=500&q=cruiser"));
+    render(<ExploreClient />);
+
+    expect(await screen.findByTestId("car-land-cruiser")).toBeInTheDocument();
+
+    const [clearButton] = screen.getAllByRole("button", {
+      name: /clear all filters/i,
+    });
+    await user.click(clearButton);
+
+    expect(await screen.findByTestId("car-gt-r")).toBeInTheDocument();
+    expect(screen.getByTestId("car-land-cruiser")).toBeInTheDocument();
+    expect(sp.getParams().toString()).toBe("");
+    expect(screen.queryByText(/clear search/i)).not.toBeInTheDocument();
+  });
+
+  it("shows a load-error card with retry that recovers", async () => {
+    const user = userEvent.setup();
+    vi.mocked(fetchCars)
+      .mockRejectedValueOnce(new Error("Backend is down"))
+      .mockResolvedValueOnce(cars);
+
+    render(<ExploreClient />);
+
+    expect(await screen.findByText(/couldn't load cars/i)).toBeInTheDocument();
+    expect(screen.getByText("Backend is down")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /try again/i }));
+
+    expect(await screen.findByTestId("car-gt-r")).toBeInTheDocument();
+    expect(screen.getByTestId("car-land-cruiser")).toBeInTheDocument();
+    expect(
+      screen.queryByText(/couldn't load cars/i)
+    ).not.toBeInTheDocument();
   });
 });

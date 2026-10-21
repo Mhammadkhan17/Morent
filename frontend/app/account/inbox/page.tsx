@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ThreadPanel } from "@/components/thread/ThreadPanel";
-import { LoadErrorCard } from "@/app/account/load-error";
+import { LoadErrorCard } from "@/app/components/load-error";
 import { fetchMeBookings, type MeBooking } from "@/lib/account";
 import { cn } from "@/lib/utils";
 
@@ -59,7 +59,11 @@ function InboxPage() {
 
   if (loadError) {
     return (
-      <LoadErrorCard message={loadError} onRetry={refreshBookings} />
+      <LoadErrorCard
+        title="Couldn't load your messages"
+        message={loadError}
+        onRetry={refreshBookings}
+      />
     );
   }
 

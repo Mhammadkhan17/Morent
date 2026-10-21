@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CarCard } from "@/app/components/CatalogueCar";
+import { LoadErrorCard } from "@/app/components/load-error";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { FieldLegend, FieldSet } from "@/components/ui/field";
@@ -37,22 +38,26 @@ const CAPACITY_OPTIONS = [
   { value: "8+", label: "8 or more" },
 ] as const;
 
-const CAPACITY_VALUES = CAPACITY_OPTIONS.map((o) => o.value);
-
 const validChoice = (
   raw: string | null,
   allowed: readonly string[],
   fallback: string
-): string => (raw && allowed.includes(raw) ? raw : fallback);
+): string => {
+  const value = raw?.trim();
+  return value && allowed.includes(value) ? value : fallback;
+};
 
-const validCapacity = (raw: string | null): CapacityFilter =>
-  raw && (CAPACITY_VALUES as readonly string[]).includes(raw)
-    ? (raw as CapacityFilter)
+const validCapacity = (raw: string | null): CapacityFilter => {
+  const value = raw?.trim();
+  if (value === "8+" || value === "8") return "8+";
+  return value === "2" || value === "4" || value === "6"
+    ? (value as CapacityFilter)
     : "all";
+};
 
 const parsePriceParam = (raw: string | null): number | null => {
   if (raw === null) return null;
-  const parsed = Number(raw);
+  const parsed = Number(raw.trim());
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 };
 
@@ -212,14 +217,11 @@ const ExploreClient = () => {
     return (
       <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <h1 className="mb-6 text-2xl font-bold">Explore cars</h1>
-        <Card>
-          <CardContent className="flex flex-col items-center gap-4 p-10 text-center">
-            <p className="text-destructive">{loadError}</p>
-            <Button variant="outline" onClick={handleRetry}>
-              Try again
-            </Button>
-          </CardContent>
-        </Card>
+        <LoadErrorCard
+          title="Couldn't load cars"
+          message={loadError}
+          onRetry={handleRetry}
+        />
       </div>
     );
   }

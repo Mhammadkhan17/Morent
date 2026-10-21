@@ -11,11 +11,11 @@ import {
 import { CircleX, RefreshCw } from "lucide-react";
 
 export function LoadErrorCard({
-  title = "Couldn't load your bookings",
+  title,
   message,
   onRetry,
 }: {
-  title?: string;
+  title: string;
   message: string;
   onRetry: () => void;
 }) {

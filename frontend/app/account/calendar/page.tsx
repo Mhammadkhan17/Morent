@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/app/admin/status-badge";
 import { dateRange, localToday } from "@/app/account/buckets";
-import { LoadErrorCard } from "@/app/account/load-error";
+import { LoadErrorCard } from "@/app/components/load-error";
 import { fetchMeBookings, type MeBooking } from "@/lib/account";
 
 export default function AccountCalendarPage() {
@@ -46,6 +46,7 @@ export default function AccountCalendarPage() {
   if (loadError) {
     return (
       <LoadErrorCard
+        title="Couldn't load your calendar"
         message={loadError}
         onRetry={() => {
           setBookings(null);

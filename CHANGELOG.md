@@ -9,8 +9,16 @@ All notable changes to Morent are documented here. Format loosely follows
 - Filters are now URL-derived (type, transmission, capacity, price, q): refresh,
   back/forward, and shared links all restore state; no local-mirror effects.
 - Price slider commits on release (`onValueCommit`); dragging never churns the URL.
-- "Clear all filters" (sidebar + empty state) and "Try again" on catalogue load failure.
+- Hand-typed `?capacity=8+` (plus decoded as a space) and junk filter values fall
+  back safely instead of silently dropping the filter.
+- "Clear all filters" (sidebar + empty state) and "Try again" on catalogue load
+  failure via the shared `LoadErrorCard` (moved to `app/components/`; title is
+  now required and accurate per surface — inbox no longer claims bookings).
 - Search query shows a "Clear search" link; empty state shares one honest card.
+- Car cards show a quiet "photo unavailable" placeholder when an image 404s
+  instead of an endless skeleton; the slider thumb carries its accessible name.
+- Explore regression tests cover URL restore, clear-all, invalid params, and
+  load-error retry recovery.
 
 ### Payment — resilient checkout
 - Rental draft is read without being consumed (`readRentalDraft`); cleared only after
@@ -41,6 +49,6 @@ All notable changes to Morent are documented here. Format loosely follows
   section, loading skeleton).
 
 ### Tests & gates
-- 62 frontend tests (10 files) covering explore filtering, rental draft, api error
-  normalization, validation, and rental summary; `npm run lint` and `npm run build`
-  green.
+- 66 frontend tests (10 files) covering explore filtering/URL state/retry,
+  rental draft, api error normalization, validation, load-error card, and
+  rental summary; `npm run lint` and `npm run build` green.

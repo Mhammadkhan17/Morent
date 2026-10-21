@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/app/admin/status-badge";
 import { bucketize, dateRange, type Bucket } from "@/app/account/buckets";
-import { LoadErrorCard } from "@/app/account/load-error";
+import { LoadErrorCard } from "@/app/components/load-error";
 import { fetchMeBookings, type MeBooking } from "@/lib/account";
 import { formatCents } from "@/lib/cars-api";
 import { cn } from "@/lib/utils";
@@ -80,6 +80,7 @@ export default function AccountBookingsPage() {
   if (loadError) {
     return (
       <LoadErrorCard
+        title="Couldn't load your bookings"
         message={loadError}
         onRetry={() => {
           setBookings(null);

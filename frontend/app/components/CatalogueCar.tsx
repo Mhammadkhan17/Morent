@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Cog, Fuel, Star, Users } from "lucide-react";
+import { Cog, Fuel, ImageOff, Star, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +27,7 @@ interface CatalogueCarProps {
 
 export const CarCard = ({ car }: { car: Car }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
   const meta = car.imageMetadata ?? { width: 600, height: 600 };
 
   return (
@@ -53,8 +54,20 @@ export const CarCard = ({ car }: { car: Car }) => {
 
         <CardContent className="pb-4">
           <div className="relative flex h-40 items-center justify-center">
-            {!imageLoaded && (
+            {!imageLoaded && !imageFailed && (
               <Skeleton className="absolute inset-x-6 inset-y-2 rounded-lg" />
+            )}
+            {imageFailed && (
+              <div
+                role="img"
+                aria-label={`${car.name} photo unavailable`}
+                className="flex h-full w-full items-center justify-center rounded-lg bg-muted"
+              >
+                <ImageOff
+                  aria-hidden="true"
+                  className="size-8 text-muted-foreground"
+                />
+              </div>
             )}
             <Image
               src={car.imageUrl}
@@ -64,9 +77,10 @@ export const CarCard = ({ car }: { car: Car }) => {
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
               loading="eager"
               onLoad={() => setImageLoaded(true)}
+              onError={() => setImageFailed(true)}
               className={cn(
                 "relative h-auto w-full object-contain transition-opacity duration-300",
-                imageLoaded ? "opacity-100" : "opacity-0"
+                imageLoaded && !imageFailed ? "opacity-100" : "opacity-0"
               )}
             />
           </div>
