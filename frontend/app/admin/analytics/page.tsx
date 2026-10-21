@@ -131,7 +131,7 @@ function RevenueChart({
 
 function BarList({
   items,
-  colorClass = "bg-primary",
+  colorClass = "bg-chart-1",
 }: {
   items: { key: string; label: string; display: string; ratio: number }[];
   colorClass?: string;

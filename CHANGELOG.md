@@ -55,6 +55,10 @@ All notable changes to Morent are documented here. Format loosely follows
   the normative reference; `.gitignore` covers impeccable ephemeral state.
 - Rating stars → Cobalt (`text-primary`); `rounded-2xl` → `rounded-xl` (Pickup
   section, loading skeleton).
+- Drift follow-up: RentalSummary reuses the shared `RatingStars` component,
+  Pick-Up swap button inherits control radius, PaymentMethod blocks carry one
+  claim each (when/where · what · Stripe never stores details), BarList default
+  bar color → `bg-chart-1` (data palette, not the action color).
 
 ### Tests & gates
 - 71 frontend tests (11 files) covering explore filtering/URL state/retry,

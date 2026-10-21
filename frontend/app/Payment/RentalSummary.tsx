@@ -1,7 +1,6 @@
 "use client";
 import React from "react";
 import Image from "next/image";
-import { Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,9 +11,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { RatingStars } from "@/app/cars/[id]/rating-stars";
 import { formatCents } from "@/lib/cars-api";
 import type { Car, Quote } from "@/lib/types";
-import { cn } from "@/lib/utils";
 import { LIMITS } from "./validation";
 
 interface RentalSummaryProps {
@@ -74,24 +73,7 @@ const RentalSummary = ({
           <div className="min-w-0">
             <p className="text-lg font-bold break-words">{car.name}</p>
             <div className="flex flex-wrap items-center gap-2">
-              <span
-                className="flex items-center gap-0.5"
-                role="img"
-                aria-label={`${rating} out of 5 stars`}
-              >
-                {[1, 2, 3, 4, 5].map((step) => (
-                  <Star
-                    key={step}
-                    aria-hidden="true"
-                    className={cn(
-                      "size-4",
-                      step <= rating
-                        ? "fill-current text-primary"
-                        : "text-muted-foreground/30"
-                    )}
-                  />
-                ))}
-              </span>
+              <RatingStars rating={rating} />
               <span className="text-xs text-muted-foreground">
                 Demo rating
               </span>

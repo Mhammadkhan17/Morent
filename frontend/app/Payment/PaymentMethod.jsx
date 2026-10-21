@@ -33,8 +33,7 @@ const PaymentMethod = () => {
           <div>
             <CardTitle className="text-lg">Payment Method</CardTitle>
             <CardDescription>
-              After you confirm the rental, a secure card form opens on this
-              page
+              The card form opens on this page after you press Rent now
             </CardDescription>
           </div>
           <Badge variant="secondary">Step 3 of 4</Badge>
@@ -47,8 +46,7 @@ const PaymentMethod = () => {
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold">Card & wallets</p>
             <p className="text-sm text-muted-foreground">
-              Card, Apple Pay, Google Pay, and more — you&apos;ll enter them
-              securely at the final step.
+              Card, Apple Pay, Google Pay, and more.
             </p>
           </div>
           <div className="hidden items-center gap-2 sm:flex">
@@ -68,8 +66,8 @@ const PaymentMethod = () => {
         <div className="flex items-start gap-3 rounded-lg bg-muted p-4">
           <Lock aria-hidden="true" className="size-5 shrink-0 text-primary" />
           <p className="text-sm text-muted-foreground">
-            Card details are entered in Stripe&apos;s form after you press
-            Rent now — they never touch our servers or get stored by us.
+            Details are entered in Stripe&apos;s form — they never touch our
+            servers or get stored by us.
           </p>
         </div>
       </CardContent>

@@ -219,7 +219,7 @@ const PickUpSection = () => {
             size="icon"
             aria-label="Swap pick-up and drop-off details"
             onClick={swap}
-            className="size-12 rounded-xl"
+            className="size-12"
           >
             <ArrowUpDown />
           </Button>
