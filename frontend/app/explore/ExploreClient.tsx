@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { CarCard } from "@/app/components/CatalogueCar";
 import { Card, CardContent } from "@/components/ui/card";
 import { FieldLegend, FieldSet } from "@/components/ui/field";
@@ -22,6 +24,8 @@ const TYPE_OPTIONS = [
   "Hatchback",
 ] as const;
 
+const TRANSMISSION_OPTIONS = ["Automatic", "Manual"] as const;
+
 const CAPACITY_OPTIONS = [
   { value: "2", label: "2 Person" },
   { value: "4", label: "4 Person" },
@@ -32,10 +36,13 @@ const CAPACITY_OPTIONS = [
 type CapacityFilter = "all" | "2" | "4" | "6" | "8+";
 
 const ExploreClient = () => {
+  const searchParams = useSearchParams();
+  const query = (searchParams.get("q") ?? "").trim();
   const [cars, setCars] = useState<Car[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [type, setType] = useState("all");
+  const [transmission, setTransmission] = useState("all");
   const [capacity, setCapacity] = useState<CapacityFilter>("all");
   const [maxPrice, setMaxPrice] = useState(1000);
 
@@ -81,18 +88,25 @@ const ExploreClient = () => {
     return counts;
   }, [cars]);
 
-  const filtered = useMemo(
-    () =>
-      cars.filter((car) => {
-        const seats = parseSeats(car.seatingCapacity);
-        const typeOk = type === "all" || car.type === type;
-        const capacityOk =
-          capacity === "all" ||
-          (capacity === "8+" ? seats >= 8 : seats === Number(capacity));
-        return typeOk && capacityOk && car.pricePerDay <= maxPrice;
-      }),
-    [cars, type, capacity, maxPrice]
-  );
+  const filtered = useMemo(() => {
+    const q = query.toLowerCase();
+    return cars.filter((car) => {
+      const seats = parseSeats(car.seatingCapacity);
+      const typeOk = type === "all" || car.type === type;
+      const transmissionOk =
+        transmission === "all" || car.transmission === transmission;
+      const capacityOk =
+        capacity === "all" ||
+        (capacity === "8+" ? seats >= 8 : seats === Number(capacity));
+      const queryOk =
+        q === "" ||
+        car.name.toLowerCase().includes(q) ||
+        car.tags.some((tag) => tag.toLowerCase().includes(q));
+      return (
+        typeOk && transmissionOk && capacityOk && queryOk && car.pricePerDay <= maxPrice
+      );
+    });
+  }, [cars, type, transmission, capacity, maxPrice, query]);
 
   if (isLoading) {
     return (
@@ -158,6 +172,36 @@ const ExploreClient = () => {
             </FieldSet>
 
             <FieldSet>
+              <FieldLegend>Transmission</FieldLegend>
+              <RadioGroup
+                value={transmission}
+                onValueChange={setTransmission}
+                className="gap-3"
+              >
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="all" id="transmission-all" />
+                  <Label htmlFor="transmission-all" className="font-normal">
+                    All
+                  </Label>
+                </div>
+                {TRANSMISSION_OPTIONS.map((option) => (
+                  <div key={option} className="flex items-center gap-2">
+                    <RadioGroupItem
+                      value={option}
+                      id={`transmission-${option}`}
+                    />
+                    <Label
+                      htmlFor={`transmission-${option}`}
+                      className="font-normal"
+                    >
+                      {option}
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </FieldSet>
+
+            <FieldSet>
               <FieldLegend>Capacity</FieldLegend>
               <RadioGroup
                 value={capacity}
@@ -213,6 +257,18 @@ const ExploreClient = () => {
         <div>
           <p className="mb-4 text-sm text-muted-foreground">
             {filtered.length} {filtered.length === 1 ? "car" : "cars"} available
+            {query ? (
+              <>
+                {" "}
+                for &ldquo;{query}&rdquo;{" "}
+                <Link
+                  href="/explore"
+                  className="font-medium text-primary underline-offset-4 hover:underline"
+                >
+                  Clear search
+                </Link>
+              </>
+            ) : null}
           </p>
 
           {filtered.length === 0 ? (

@@ -12,20 +12,31 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ThreadPanel } from "@/components/thread/ThreadPanel";
+import { LoadErrorCard } from "@/app/account/load-error";
 import { fetchMeBookings, type MeBooking } from "@/lib/account";
 import { cn } from "@/lib/utils";
 
 function InboxPage() {
   const searchParams = useSearchParams();
   const [bookings, setBookings] = useState<MeBooking[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(
     searchParams.get("booking")
   );
 
   const refreshBookings = useCallback(() => {
     fetchMeBookings()
-      .then((data) => setBookings(data.bookings))
-      .catch(() => setBookings([]));
+      .then((data) => {
+        setLoadError(null);
+        setBookings(data.bookings);
+      })
+      .catch((err: unknown) => {
+        setLoadError(
+          err instanceof Error && err.message
+            ? err.message
+            : "Could not load your bookings."
+        );
+      });
   }, []);
 
   useEffect(() => {
@@ -45,6 +56,12 @@ function InboxPage() {
   );
 
   const selected = bookings?.find((b) => b.id === selectedId) ?? null;
+
+  if (loadError) {
+    return (
+      <LoadErrorCard message={loadError} onRetry={refreshBookings} />
+    );
+  }
 
   if (bookings === null) {
     return (

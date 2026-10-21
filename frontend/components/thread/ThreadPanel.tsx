@@ -26,8 +26,11 @@ export function ThreadPanel({
     bookingId: string;
     messages: ThreadMessage[];
   } | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -36,13 +39,19 @@ export function ThreadPanel({
       .then((data) => {
         if (!cancelled) setThread({ bookingId, messages: data.messages });
       })
-      .catch(() => {
-        if (!cancelled) setThread({ bookingId, messages: [] });
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setLoadError(
+            err instanceof Error && err.message
+              ? err.message
+              : "Could not load this conversation."
+          );
+        }
       });
     return () => {
       cancelled = true;
     };
-  }, [bookingId]);
+  }, [bookingId, reload]);
 
   const messages =
     thread && thread.bookingId === bookingId ? thread.messages : null;
@@ -68,6 +77,7 @@ export function ThreadPanel({
     const body = draft.trim();
     if (!body || sending) return;
     setSending(true);
+    setSendError(null);
     sendMessage(bookingId, body)
       .then((message) => {
         setThread((prev) =>
@@ -78,9 +88,35 @@ export function ThreadPanel({
         setDraft("");
         onSent?.();
       })
-      .catch(() => {})
+      .catch((err: unknown) => {
+        setSendError(
+          err instanceof Error && err.message
+            ? err.message
+            : "Message failed to send. Your draft is kept — try again."
+        );
+      })
       .finally(() => setSending(false));
   };
+
+  if (loadError) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col items-start gap-3">
+        <p className="text-sm text-destructive" role="alert">
+          {loadError}
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => {
+            setLoadError(null);
+            setReload((n) => n + 1);
+          }}
+        >
+          Try again
+        </Button>
+      </div>
+    );
+  }
 
   if (messages === null) {
     return <Skeleton className="h-64 w-full" />;
@@ -124,6 +160,11 @@ export function ThreadPanel({
         })}
         <div ref={bottomRef} />
       </div>
+      {sendError && (
+        <p className="text-xs text-destructive" role="alert">
+          {sendError}
+        </p>
+      )}
       <div className="flex items-end gap-2 border-t pt-3">
         <Textarea
           value={draft}

@@ -18,6 +18,7 @@ import {
   type NotificationItem,
 } from "@/lib/notifications";
 import { useEventStream, type SseNotificationPayload } from "@/lib/sse";
+import { ApiError } from "@/lib/api";
 
 export type SessionUser = {
   id: string;
@@ -42,6 +43,8 @@ type AuthContextValue = {
   signOut: () => Promise<void>;
   notifications: NotificationItem[];
   unreadCount: number;
+  /** True when the last notifications refresh failed for a non-auth reason. */
+  notificationsError: boolean;
   refreshNotifications: () => Promise<void>;
   markNotificationRead: (id: string) => Promise<void>;
   markAllNotificationsRead: () => Promise<void>;
@@ -58,6 +61,7 @@ const AuthContext = createContext<AuthContextValue>({
   signOut: async () => {},
   notifications: [],
   unreadCount: 0,
+  notificationsError: false,
   refreshNotifications: async () => {},
   markNotificationRead: async () => {},
   markAllNotificationsRead: async () => {},
@@ -71,6 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationsError, setNotificationsError] = useState(false);
   const [toasts, setToasts] = useState<LiveToast[]>([]);
   const [lastMessage, setLastMessage] = useState<LiveMessage | null>(null);
   const seenIdsRef = useRef<Set<string>>(new Set());
@@ -94,12 +99,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshNotifications = useCallback((): Promise<void> =>
     fetchNotifications()
       .then((data) => {
+        setNotificationsError(false);
         setNotifications(data.notifications);
         setUnreadCount(data.unreadCount);
         seenIdsRef.current = new Set(data.notifications.map((n) => n.id));
       })
-      .catch(() => {
-        // signed out or offline — keep last known state
+      .catch((err: unknown) => {
+        // signed out — the session gate owns that state; other failures surface in the bell
+        if (err instanceof ApiError && err.status === 401) return;
+        console.error("Failed to refresh notifications", err);
+        setNotificationsError(true);
       }), []);
 
   const markNotificationRead = useCallback(
@@ -209,6 +218,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signOut,
         notifications,
         unreadCount,
+        notificationsError,
         refreshNotifications,
         markNotificationRead,
         markAllNotificationsRead,

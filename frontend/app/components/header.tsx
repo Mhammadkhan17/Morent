@@ -37,16 +37,19 @@ const HeaderActions = () => (
 );
 
 const SearchField = () => (
-  <InputGroup className="h-11">
-    <InputGroupAddon>
-      <Search aria-hidden="true" />
-    </InputGroupAddon>
-    <InputGroupInput
-      type="search"
-      placeholder="Search something here"
-      aria-label="Search cars"
-    />
-  </InputGroup>
+  <form action="/explore" method="get" role="search">
+    <InputGroup className="h-9">
+      <InputGroupAddon>
+        <Search aria-hidden="true" />
+      </InputGroupAddon>
+      <InputGroupInput
+        type="search"
+        name="q"
+        placeholder="Search cars"
+        aria-label="Search cars"
+      />
+    </InputGroup>
+  </form>
 );
 
 const MainHeader = () => {

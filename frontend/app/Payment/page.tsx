@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState, Suspense } fr
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { CircleCheck, CircleX } from "lucide-react";
+import { CircleX } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +22,7 @@ import RentalInfo from "./RentalInfo";
 import PayPanel from "./PayPanel";
 import { fetchCar, formatCents } from "@/lib/cars-api";
 import { createBooking, fetchQuote } from "@/lib/bookings";
+import { consumeRentalDraft } from "@/lib/rental-draft";
 import type { Car, Quote } from "@/lib/types";
 import { useAuth } from "@/lib/AuthProvider";
 import { ApiError } from "@/lib/api";
@@ -89,27 +90,30 @@ const PaymentContent = () => {
     window.location.replace(`/login?next=${next}`);
   }, [isLoading, user]);
 
-  const [formData, setFormData] = useState<FormData>({
-    billingInfo: {
-      name: "",
-      phone: "",
-      address: "",
-      city: "",
-    },
-    rentalInfo: {
-      pickup: {
-        date: "",
-        location: "",
-        time: "",
+  const [formData, setFormData] = useState<FormData>(() => {
+    const draft = consumeRentalDraft();
+    return {
+      billingInfo: {
+        name: "",
+        phone: "",
+        address: "",
+        city: "",
       },
-      dropoff: {
-        date: "",
-        location: "",
-        time: "",
+      rentalInfo: draft ?? {
+        pickup: {
+          date: "",
+          location: "",
+          time: "",
+        },
+        dropoff: {
+          date: "",
+          location: "",
+          time: "",
+        },
       },
-    },
-    agreedToMarketing: false,
-    agreedToTerms: false,
+      agreedToMarketing: false,
+      agreedToTerms: false,
+    };
   });
 
   useEffect(() => {
@@ -378,9 +382,6 @@ const PaymentContent = () => {
     ]
   );
 
-  const messageIsSuccess =
-    statusMessage === "Your rental has been confirmed!";
-
   if (isLoading || !user) {
     return <PaymentFallback />;
   }
@@ -471,15 +472,8 @@ const PaymentContent = () => {
       </div>
 
       {statusMessage && (
-        <Alert
-          className="mt-6"
-          variant={messageIsSuccess ? "default" : "destructive"}
-        >
-          {messageIsSuccess ? (
-            <CircleCheck aria-hidden="true" />
-          ) : (
-            <CircleX aria-hidden="true" />
-          )}
+        <Alert className="mt-6" variant="destructive">
+          <CircleX aria-hidden="true" />
           <AlertDescription>{statusMessage}</AlertDescription>
         </Alert>
       )}

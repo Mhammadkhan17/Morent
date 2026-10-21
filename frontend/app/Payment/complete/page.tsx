@@ -118,8 +118,7 @@ const CompleteContent = () => {
             <Alert>
               <CircleCheck aria-hidden="true" />
               <AlertDescription>
-                Your rental is confirmed. You can manage it from your account
-                once dashboards ship.
+                Your rental is confirmed. You can manage it from your account.
               </AlertDescription>
             </Alert>
           )}

@@ -87,7 +87,7 @@ const RentalSummary = ({
                 ))}
               </span>
               <span className="text-xs text-muted-foreground">
-                440+ Reviews
+                Sample reviews
               </span>
             </div>
           </div>

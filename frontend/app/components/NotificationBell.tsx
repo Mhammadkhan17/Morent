@@ -25,6 +25,8 @@ export default function NotificationBell() {
     user,
     notifications,
     unreadCount,
+    notificationsError,
+    refreshNotifications,
     markNotificationRead,
     markAllNotificationsRead,
   } = useAuth();
@@ -53,7 +55,10 @@ export default function NotificationBell() {
         </Button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="end" className="w-96">
+      <DropdownMenuContent
+        align="end"
+        className="w-[min(24rem,calc(100vw-2rem))]"
+      >
         <div className="flex items-center justify-between px-2 py-1.5">
           <span className="text-sm font-semibold">Notifications</span>
           {unreadCount > 0 && (
@@ -69,6 +74,24 @@ export default function NotificationBell() {
           )}
         </div>
 
+        {notificationsError && (
+          <p
+            className="border-y border-border bg-muted px-3 py-2 text-xs text-muted-foreground"
+            role="alert"
+          >
+            {notifications.length === 0
+              ? "Couldn't load notifications."
+              : "Couldn't refresh — showing last known notifications."}{" "}
+            <button
+              type="button"
+              className="font-medium text-primary underline-offset-4 hover:underline"
+              onClick={() => void refreshNotifications()}
+            >
+              Retry
+            </button>
+          </p>
+        )}
+
         <div className="max-h-96 overflow-y-auto">
           {notifications.length === 0 ? (
             <p className="px-4 py-8 text-center text-sm text-muted-foreground">
@@ -80,7 +103,7 @@ export default function NotificationBell() {
                 key={notification.id}
                 type="button"
                 className={cn(
-                  "block w-full border-l-2 px-3 py-2.5 text-left transition-colors hover:bg-accent focus:bg-accent focus:outline-none",
+                  "block w-full border-l-2 px-3 py-2.5 text-left transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-2 focus-visible:outline-ring",
                   notification.readAt === null
                     ? "border-primary"
                     : "border-transparent"

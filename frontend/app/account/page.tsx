@@ -15,17 +15,47 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/app/admin/status-badge";
 import { dateRange, bucketize } from "@/app/account/buckets";
+import { LoadErrorCard } from "@/app/account/load-error";
 import { fetchMeBookings, type MeBooking } from "@/lib/account";
 import { formatCents } from "@/lib/cars-api";
 
 export default function AccountOverviewPage() {
   const [bookings, setBookings] = useState<MeBooking[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
     fetchMeBookings()
-      .then((data) => setBookings(data.bookings))
-      .catch(() => setBookings([]));
-  }, []);
+      .then((data) => {
+        if (!cancelled) setBookings(data.bookings);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setLoadError(
+            err instanceof Error && err.message
+              ? err.message
+              : "Could not load your bookings."
+          );
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [reload]);
+
+  if (loadError) {
+    return (
+      <LoadErrorCard
+        message={loadError}
+        onRetry={() => {
+          setBookings(null);
+          setLoadError(null);
+          setReload((n) => n + 1);
+        }}
+      />
+    );
+  }
 
   if (bookings === null) {
     return (

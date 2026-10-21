@@ -6,17 +6,34 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/app/admin/status-badge";
 import { dateRange, localToday } from "@/app/account/buckets";
+import { LoadErrorCard } from "@/app/account/load-error";
 import { fetchMeBookings, type MeBooking } from "@/lib/account";
 
 export default function AccountCalendarPage() {
   const [bookings, setBookings] = useState<MeBooking[] | null>(null);
   const [selected, setSelected] = useState<string>(() => localToday());
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
     fetchMeBookings()
-      .then((data) => setBookings(data.bookings))
-      .catch(() => setBookings([]));
-  }, []);
+      .then((data) => {
+        if (!cancelled) setBookings(data.bookings);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setLoadError(
+            err instanceof Error && err.message
+              ? err.message
+              : "Could not load your bookings."
+          );
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [reload]);
 
   const dayBookings = useMemo(() => {
     if (!bookings) return [];
@@ -25,6 +42,19 @@ export default function AccountCalendarPage() {
         booking.pickupDate <= selected && booking.dropoffDate >= selected
     );
   }, [bookings, selected]);
+
+  if (loadError) {
+    return (
+      <LoadErrorCard
+        message={loadError}
+        onRetry={() => {
+          setBookings(null);
+          setLoadError(null);
+          setReload((n) => n + 1);
+        }}
+      />
+    );
+  }
 
   if (bookings === null) {
     return (

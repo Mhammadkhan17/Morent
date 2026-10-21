@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -14,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { saveRentalDraft } from "@/lib/rental-draft";
 import { cn } from "@/lib/utils";
 import { LOCATION_OPTIONS } from "@/lib/locations";
 
@@ -31,6 +33,7 @@ interface BookingBlockProps {
   side: BookingSide;
   activeSide: BookingSide;
   fields: Fields;
+  errors: Partial<Record<keyof Fields, string>>;
   onActivate: (side: BookingSide) => void;
   onFieldsChange: (fields: Fields) => void;
 }
@@ -41,6 +44,7 @@ const BookingBlock = ({
   side,
   activeSide,
   fields,
+  errors,
   onActivate,
   onFieldsChange,
 }: BookingBlockProps) => {
@@ -80,7 +84,11 @@ const BookingBlock = ({
               onFieldsChange({ ...fields, location: value })
             }
           >
-            <SelectTrigger id={`${id}-location`} className="w-full">
+            <SelectTrigger
+              id={`${id}-location`}
+              className="w-full"
+              aria-invalid={errors.location ? true : undefined}
+            >
               <SelectValue placeholder="Select location" />
             </SelectTrigger>
             <SelectContent>
@@ -93,6 +101,11 @@ const BookingBlock = ({
               </SelectGroup>
             </SelectContent>
           </Select>
+          {errors.location && (
+            <p className="text-xs text-destructive" role="alert">
+              {errors.location}
+            </p>
+          )}
         </Field>
 
         <Field>
@@ -101,10 +114,16 @@ const BookingBlock = ({
             id={`${id}-date`}
             type="date"
             value={fields.date}
+            aria-invalid={errors.date ? true : undefined}
             onChange={(event) =>
               onFieldsChange({ ...fields, date: event.target.value })
             }
           />
+          {errors.date && (
+            <p className="text-xs text-destructive" role="alert">
+              {errors.date}
+            </p>
+          )}
         </Field>
 
         <Field>
@@ -113,10 +132,16 @@ const BookingBlock = ({
             id={`${id}-time`}
             type="time"
             value={fields.time}
+            aria-invalid={errors.time ? true : undefined}
             onChange={(event) =>
               onFieldsChange({ ...fields, time: event.target.value })
             }
           />
+          {errors.time && (
+            <p className="text-xs text-destructive" role="alert">
+              {errors.time}
+            </p>
+          )}
         </Field>
       </FieldGroup>
     </div>
@@ -125,14 +150,51 @@ const BookingBlock = ({
 
 const emptyFields: Fields = { location: "", date: "", time: "" };
 
+type SideKey = "pickup" | "dropoff";
+type FieldKey = keyof Fields;
+type ErrorMap = Partial<Record<`${SideKey}.${FieldKey}`, string>>;
+
+const validate = (
+  pickup: Fields,
+  dropoff: Fields,
+): ErrorMap => {
+  const errors: ErrorMap = {};
+  for (const [sideKey, fields] of [
+    ["pickup", pickup],
+    ["dropoff", dropoff],
+  ] as const) {
+    const label = sideKey === "pickup" ? "Pick-up" : "Drop-off";
+    if (!fields.location) errors[`${sideKey}.location`] = `${label} location required`;
+    if (!fields.date) errors[`${sideKey}.date`] = `${label} date required`;
+    if (!fields.time) errors[`${sideKey}.time`] = `${label} time required`;
+  }
+  return errors;
+};
+
 const PickUpSection = () => {
+  const router = useRouter();
   const [activeSide, setActiveSide] = useState<BookingSide>("pickup");
   const [pickup, setPickup] = useState<Fields>(emptyFields);
   const [dropoff, setDropoff] = useState<Fields>(emptyFields);
+  const [errors, setErrors] = useState<ErrorMap>({});
 
   const swap = () => {
     setPickup(dropoff);
     setDropoff(pickup);
+  };
+
+  const sideErrors = (side: SideKey): Partial<Record<FieldKey, string>> => ({
+    location: errors[`${side}.location`],
+    date: errors[`${side}.date`],
+    time: errors[`${side}.time`],
+  });
+
+  const handleSubmit = () => {
+    const nextErrors = validate(pickup, dropoff);
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
+    saveRentalDraft({ pickup, dropoff });
+    router.push("/explore");
   };
 
   return (
@@ -147,6 +209,7 @@ const PickUpSection = () => {
           side="pickup"
           activeSide={activeSide}
           fields={pickup}
+          errors={sideErrors("pickup")}
           onActivate={setActiveSide}
           onFieldsChange={setPickup}
         />
@@ -168,9 +231,14 @@ const PickUpSection = () => {
           side="dropoff"
           activeSide={activeSide}
           fields={dropoff}
+          errors={sideErrors("dropoff")}
           onActivate={setActiveSide}
           onFieldsChange={setDropoff}
         />
+      </div>
+
+      <div className="mt-5 flex justify-end">
+        <Button onClick={handleSubmit}>Search cars</Button>
       </div>
     </section>
   );

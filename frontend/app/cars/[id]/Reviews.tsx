@@ -24,16 +24,21 @@ const Reviews = () => {
   return (
     <section aria-labelledby="reviews-heading" className="mt-12 sm:mt-16">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <h2 id="reviews-heading" className="text-2xl font-bold">
-          Reviews
-        </h2>
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 id="reviews-heading" className="text-2xl font-bold">
+            Reviews
+          </h2>
+          <span className="rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+            Sample reviews
+          </span>
+        </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <RatingStars rating={Math.round(average)} />
           <span className="font-semibold text-foreground">
             {average.toFixed(1)}
           </span>
           <span aria-hidden="true">·</span>
-          <span>{reviews.length} reviews</span>
+          <span>{reviews.length} sample reviews</span>
         </div>
       </div>
 
