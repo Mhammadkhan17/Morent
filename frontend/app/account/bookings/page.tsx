@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/app/admin/status-badge";
 import { bucketize, dateRange, type Bucket } from "@/app/account/buckets";
+import { LoadErrorCard } from "@/app/account/load-error";
 import { fetchMeBookings, type MeBooking } from "@/lib/account";
 import { formatCents } from "@/lib/cars-api";
 import { cn } from "@/lib/utils";
@@ -48,17 +49,46 @@ function BookingRow({ booking, href }: { booking: MeBooking; href: string }) {
 export default function AccountBookingsPage() {
   const [bookings, setBookings] = useState<MeBooking[] | null>(null);
   const [tab, setTab] = useState<Bucket>("current");
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
     fetchMeBookings()
-      .then((data) => setBookings(data.bookings))
-      .catch(() => setBookings([]));
-  }, []);
+      .then((data) => {
+        if (!cancelled) setBookings(data.bookings);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setLoadError(
+            err instanceof Error && err.message
+              ? err.message
+              : "Could not load your bookings."
+          );
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [reload]);
 
   const buckets = useMemo(
     () => (bookings ? bucketize(bookings) : null),
     [bookings]
   );
+
+  if (loadError) {
+    return (
+      <LoadErrorCard
+        message={loadError}
+        onRetry={() => {
+          setBookings(null);
+          setLoadError(null);
+          setReload((n) => n + 1);
+        }}
+      />
+    );
+  }
 
   if (buckets === null) {
     return (
@@ -75,7 +105,7 @@ export default function AccountBookingsPage() {
   return (
     <div className="space-y-4">
       <div
-        role="tablist"
+        role="group"
         aria-label="Booking filters"
         className="flex gap-1 rounded-md bg-muted p-1 w-fit"
       >
@@ -89,8 +119,7 @@ export default function AccountBookingsPage() {
           <button
             key={value}
             type="button"
-            role="tab"
-            aria-selected={tab === value}
+            aria-pressed={tab === value}
             onClick={() => setTab(value)}
             className={cn(
               "rounded-sm px-3 py-1.5 text-sm font-medium transition-colors",
@@ -118,8 +147,7 @@ export default function AccountBookingsPage() {
       )}
       {tab === "past" && rows.length > 0 && (
         <p className="text-xs text-muted-foreground">
-          Totals include any discounts applied at checkout. Invoices ship in
-          P3.
+          Totals include any discounts applied at checkout.
         </p>
       )}
     </div>

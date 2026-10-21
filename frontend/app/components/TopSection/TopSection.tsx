@@ -40,7 +40,7 @@ const TopSection = () => {
               >
                 <Link href="#popular">
                   Rent a car
-                  <ArrowRight data-icon="inline-end" />
+                  <ArrowRight />
                 </Link>
               </Button>
             </div>
@@ -73,7 +73,7 @@ const TopSection = () => {
               >
                 <Link href="#recommended">
                   Rent a car
-                  <ArrowRight data-icon="inline-end" />
+                  <ArrowRight />
                 </Link>
               </Button>
             </div>

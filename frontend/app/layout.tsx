@@ -6,7 +6,6 @@ import MainHeader from "./components/header";
 import { Footer } from "./components/footer";
 import { AuthProvider } from "@/lib/AuthProvider";
 import NotificationToasts from "./components/NotificationToasts";
-import { RentalDataProvider } from "./context/RentalDataContext"; // Import the context provider
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
 
 const sans = Plus_Jakarta_Sans({
@@ -37,12 +36,10 @@ export default function RootLayout({
           {THEME_INIT_SCRIPT}
         </Script>
         <AuthProvider>
-          <RentalDataProvider>
-            <MainHeader />
-            {children}
-            <Footer />
-            <NotificationToasts />
-          </RentalDataProvider>
+          <MainHeader />
+          {children}
+          <Footer />
+          <NotificationToasts />
         </AuthProvider>
       </body>
     </html>

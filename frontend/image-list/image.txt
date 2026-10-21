@@ -4,7 +4,7 @@
 # Poses: front, front-3-4, front-3-4-right, side, side-right,
 #        rear, rear-3-4, rear-3-4-right
 #
-# Code usage (lib/cars.ts):
+# Code usage (lib/cars-api.ts + lib/types.ts):
 #   imageUrl (cards, hero, detail main) = *-front-3-4.png
 #   images[] (detail gallery)           = all 8 poses, front-3-4 first
 #
@@ -13,7 +13,7 @@
 #   /asset/Payment-Logo/mastercard-com-logo.png  (PaymentMethod)
 #   /asset/Payment-Logo/paypal-com-logo.png      (PaymentMethod)
 #   /asset/Payment-Logo/bitcoin-org-logo.png     (PaymentMethod)
-#   /asset/Man-Avatar/avatar.png                 (header)
+#   /asset/Man-Avatar/avatar.png        (unused — header uses initials)
 #
 # Security shield: NOT an image — lucide <ShieldCheck /> in Confirmation.jsx
 

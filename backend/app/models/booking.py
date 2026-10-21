@@ -16,7 +16,7 @@ class Booking(SQLModel, table=True):
     __tablename__ = "bookings"
 
     id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
-    user_id: str = Field(index=True)
+    user_id: str = Field(foreign_key="user.id", index=True)
     car_id: str = Field(foreign_key="cars.id", index=True)
 
     pickup_date: date

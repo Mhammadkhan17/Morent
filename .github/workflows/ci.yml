@@ -74,3 +74,51 @@ jobs:
 
       - name: Pytest
         run: uv run pytest -q
+
+  migrations:
+    name: Alembic upgrade & drift check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: morent
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://ci:ci@localhost:5432/morent
+      DATABASE_URL_UNPOOLED: postgresql+psycopg://ci:ci@localhost:5432/morent
+      STRIPE_SECRET_KEY: sk_test_ci_placeholder
+      STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup UV
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Sync dependencies
+        run: uv sync --frozen
+
+      - name: Stub Better Auth user table
+        # Auth tables are created out-of-band in prod; migrations FK to user.id
+        run: PYTHONPATH=. uv run python scripts/ci_auth_stub.py
+
+      - name: Migrate
+        run: uv run alembic upgrade head
+
+      - name: Drift check
+        run: uv run alembic check

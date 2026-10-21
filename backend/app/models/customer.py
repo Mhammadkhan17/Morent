@@ -9,7 +9,7 @@ class CustomerProfile(SQLModel, table=True):
 
     __tablename__ = "customer_profiles"
 
-    user_id: str = Field(primary_key=True)
+    user_id: str = Field(primary_key=True, foreign_key="user.id")
     phone: str | None = None
     license_number: str | None = None
     license_expires: date | None = None

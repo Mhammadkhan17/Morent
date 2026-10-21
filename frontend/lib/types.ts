@@ -22,30 +22,9 @@ export interface Quote {
   subtotalCents: number;
   discountCents: number;
   totalCents: number;
-  currency: string;
 }
 
 export interface CheckoutSession {
   sessionId: string;
   clientSecret: string;
-}
-
-export interface Booking {
-  id: string;
-  userId: string;
-  carId: string;
-  pickupDate: string;
-  dropoffDate: string;
-  pickupTime: string;
-  dropoffTime: string;
-  pickupLocation: string;
-  dropoffLocation: string;
-  days: number;
-  promoCode: string | null;
-  subtotalCents: number;
-  discountCents: number;
-  totalCents: number;
-  currency: string;
-  status: string;
-  createdAt: string;
 }

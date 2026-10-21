@@ -724,3 +724,162 @@ Skills loaded: `tdd`. Plan/status log: `plans/deploy/vercel-plan.md`,
   the form valid is gone — **Rent now** is the only trigger for prepare →
   panel mount. No charge ever happened on checkbox-check, but the UI jump
   was surprising; flow is now explicit.
+
+### §7 final regression — run 2026-10-21 (user, prod)
+
+- Full journey on prod (`morent-mu-two.vercel.app`): signup → browse →
+  quote → promo → pay `4242…` → webhook confirm → owner
+  confirms/hands over/returns → portal hero + messages both ways +
+  notifications → analytics KPIs — **all green** (user-reported).
+- Decline card + webhook replay still green; M6 owner-dashboard gate and
+  M7 portal gate checklists (`plans/todo.md` §5–§7) ticked with the same
+  run. Closes H8 from the post-MVP audit (`report/general-report.md`).
+- Baseline locked before the audit fix plan (`plans/audit-fix-plan.md`,
+  Phases B–E) starts.
+
+## Audit fix plan — Phase B: frontend truthfulness (2026-10-21)
+
+Plan: `plans/audit-fix-plan.md` (source `report/general-report.md`).
+Gates green: lint · vitest 22/22 (was 15) · build.
+
+- **H1 home CTA wired**: "Search cars" validates all six pickup/dropoff
+  fields, persists a draft to `sessionStorage`
+  (`lib/rental-draft.ts` +test), and routes to `/explore`;
+  `/Payment` consumes the draft one-shot on mount (still requires
+  `?carId=`) so the dead-end form now actually starts a rental.
+- **M1 explore search**: header SearchField is a real GET form →
+  `/explore?q=`; ExploreClient filters on name + tags with a
+  "Clear search" affordance; `explore/page.tsx` wraps the client in
+  Suspense (useSearchParams boundary).
+- **M2 reviews honesty**: review carousels on home, car detail, and
+  Payment summary now carry a visible "Sample reviews" badge — kept
+  the section (locked decision), labeled the data.
+- **M3 transmission filter**: Automatic/Manual added to ExploreClient.
+- **M4 stale copy**: "payment successful" strings removed from booking
+  confirmation/return and account bookings pages.
+- **M11 footer**: rewritten to real routes only — dead link columns,
+  fake socials, Privacy/Terms stubs removed.
+- **M17 Stripe key guard**: `PayPanel` no-ops on missing publishable key
+  and renders a config-error panel instead of crashing the checkout.
+- **M21 dead success branch**: unreachable success `Alert` (+ unused
+  `CircleCheck`) deleted from `Payment/page.tsx` — prepare failures
+  always render destructive.
+- **H5 load-error surfaces**: new shared `LoadErrorCard`
+  (`app/account/load-error.tsx`) with retry wired into account
+  overview/bookings/calendar/inbox, `ThreadPanel` (composer keeps draft
+  on send failure), and notification bell (`notificationsError` in
+  `AuthProvider`, 401 excluded, banner + Retry).
+- **H6 error/loading boundaries**: root `app/error.tsx` +
+  `app/loading.tsx`; home catalogue load failure renders a retry card
+  instead of an empty grid.
+- Early a11y/responsive: M18 focus ring restored on the notification
+  bell; M19 dropdown width bounded on narrow viewports.
+- **M9 SSE "live" claim** (locked decision: own the refetch story, zero
+  code): audited every user-visible string — no copy claims
+  notifications/messages are "live" (internal `LiveToast`/`LiveMessage`
+  type names and the `aria-live` a11y attribute only). Reality stays:
+  refetch-on-focus + in-tab SSE as a bonus. No product change needed;
+  deferral recorded here.
+
+## Audit fix plan — Phase C: backend integrity (2026-10-21)
+
+TDD per `tdd` skill. Gates green: ruff · pytest **120 passed**
+(baseline 110 + 10 new).
+
+- **H2 same-user double-booking**: `assert_no_overlap` now excludes
+  only the caller's *pending* rows (`or_(user != me OR status !=
+  pending)`) — an own confirmed/active overlapping booking → 409
+  (`test_own_confirmed_overlap_409`). Pending supersede path unchanged.
+- **H3 webhook crash-window**: `_claim_event` re-claims `received`
+  rows older than a 60s lease (`_RECEIVED_LEASE`) and re-stamps
+  `received_at`; fresh `received` rows stay unclaimed (in-flight
+  protection). Crash drill: stale row → Stripe retry processes it;
+  fresh row → still `received` (2 new tests).
+- **M7 webhook secret fail-fast**: lifespan refuses to boot with empty
+  `STRIPE_WEBHOOK_SECRET` (ASGITransport tests unaffected; CI already
+  injects a placeholder).
+- **M5 unrentable cars**: `GET /cars/{id}` and `POST /quotes` return
+  404 for any non-available car — contract chosen: hidden cars are
+  treated as nonexistent (no inventory leak, consistent with list
+  endpoint).
+- **M6 session-status honesty**: only `stripe.InvalidRequestError`
+  maps to 404; outages propagate as 5xx (return page shows retry, not
+  "session not found"). No auth dep added — session IDs are
+  unguessable Stripe IDs and the return page must work pre-login;
+  recorded here as the implementation decision.
+- **M8 supersede money-state**: expire failure handling narrowed from
+  `except Exception: pass` to `stripe.InvalidRequestError` only —
+  unexpected Stripe/network errors abort the re-book (old pending
+  booking left payable-and-pending, not cancelled-and-payable). Late
+  `checkout.session.completed` against a cancelled booking no longer
+  writes a succeeded `Payment` row.
+
+## Audit fix plan — Phase D: schema safety (2026-10-21)
+
+Plan: `plans/audit-fix-plan.md` D1/D2. Tested on Neon branch
+`migration-align-dev-2026-10-21` (`br-blue-cake-b5f7y08q`, forked from
+Development — **migration `1eccb3865a1b` not yet applied to Development**).
+Gates: ruff · pytest 120 passed · `alembic check` clean on the branch and
+on a fresh empty database.
+
+- **H7 model/migration alignment**:
+  - FKs declared in models to match migrations: `booking.user_id`,
+    `notification.user_id`, `customer.user_id` → `user.id`
+    (`bookings_user_id_fkey`, `notifications_user_id_fkey`,
+    `customer_profiles_user_id_fkey` already existed in the DB).
+  - `messages.body` / `notifications.body` declared `sa.Text` to match
+    the migrated TEXT columns (SQLModel default AutoString had drifted).
+  - Migration `1eccb3865a1b`: five naive `TIMESTAMP` columns
+    (`messages.created_at/read_at`, `notifications.created_at/read_at`,
+    `webhook_events.received_at`) → `TIMESTAMPTZ` with explicit
+    `USING col AT TIME ZONE 'UTC'` (session-timezone safe; downgrade is
+    the exact inverse). Existing rows verified intact on the branch.
+  - Alembic `env.py` gains `include_object`: Better Auth tables
+    (`user/session/account/verification/jwks`) are excluded from
+    autogenerate comparison — the hand-suppressed drop dance from
+    `2fbeb566ad69` can never reappear.
+- **H9 CI migration guard**: new `migrations` job in `ci.yml` —
+  Postgres 17 service container → `scripts/ci_auth_stub.py` (creates the
+  out-of-band `user` table exactly as Auth had it pre-M3) →
+  `alembic upgrade head` → `alembic check` on every PR. Drift-detection
+  proven: a deliberate `Car.drift_probe` column turns the job red;
+  revert turns it green. Fresh-empty-DB path rehearsed on a scratch
+  database (`ci_migrate_test` on the test branch).
+- **Applied to Development** (`1eccb3865a1b`, live DB): before/after row
+  counts identical (2 messages · 20 notifications · 1 webhook_event ·
+  15 bookings · 8 payments · 3 users); `alembic check` clean on
+  Development. Test branch kept for reference; empty mistaken
+  production-fork branch and scratch database deleted.
+
+## Audit fix plan — Phase E: hygiene (2026-10-21)
+
+Plan: `plans/audit-fix-plan.md` E1–E5. Gates green: frontend lint ·
+vitest 22/22 · build; backend ruff · pytest 120.
+
+- **E1 dead surface removed** (M12/L1): app-wide `RentalDataProvider`
+  (+ whole `app/context/` dir — zero consumers), unused
+  `components/ui/navigation-menu.tsx`, no-op `data-icon` attrs in
+  TopSection; backend `get_optional_user`/`OptionalUserDep`/bare
+  `CurrentUser` alias, unused `owner_email` config field, 76-package
+  `requirements.txt` freeze; frontend dead `Booking` interface and
+  unread `Quote.currency`; `image-list/image.txt` stale `lib/cars.ts`
+  reference. (`sessionId` kept on `CheckoutSession` — it is part of the
+  API contract and asserted in `bookings.test.ts`.)
+- **E2 a11y** (M18): focus rings unified onto the dominant
+  `focus-visible:ring-1 ring-ring` system (dialog close button and
+  badge were ring-2+offset outliers); account bookings "tablist"
+  downgraded to a proper filter group (`role="group"` +
+  `aria-pressed`) — it never had tabpanels/arrow keys, so the tab
+  roles were a lie.
+- **E3 dropdown widths** (M19): already responsive from the Phase B
+  pass (`w-[min(24rem,calc(100vw-2rem))]`) — nothing left to do.
+- **E4 L4–L7**: pay button disabled until a total label exists
+  (no more "Pay " button); account shell width unified to
+  `max-w-7xl` (matches header); card "Rent now" CTAs marked
+  `aria-hidden` — a nested `<button>` inside the card `<Link>` would
+  be invalid HTML and a duplicate tab stop, so the decorative-affordance
+  fix was chosen over the plan's literal "→ Button"; header search was
+  already `h-9`; shared stock avatar dropped in favor of the existing
+  initials fallback (L7 done the cheap honest way).
+- **E5 deferred, recorded in `plans/todo.md`** (M13–M16, M20, L2, L3,
+  L8, backend `.env` line-15 parse warning — file not read).

@@ -93,7 +93,10 @@ const OtherCars = ({ cars, currentCarId }: OtherCarsProps) => {
                         </p>
                         <p className="text-xs text-muted-foreground">per day</p>
                       </div>
-                      <span className="inline-flex h-8 items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors group-hover:bg-primary/90">
+                      <span
+                        aria-hidden="true"
+                        className="inline-flex h-8 items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors group-hover:bg-primary/90"
+                      >
                         Rent now
                       </span>
                     </CardFooter>

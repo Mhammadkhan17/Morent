@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { CircleUser, LogOut, ShieldCheck } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -41,7 +41,6 @@ export default function AuthArea() {
           className="rounded-full"
         >
           <Avatar className="size-9">
-            <AvatarImage src="/asset/Man-Avatar/avatar.png" alt={user.email} />
             <AvatarFallback>
               {(user.name ?? user.email).charAt(0).toUpperCase()}
             </AvatarFallback>

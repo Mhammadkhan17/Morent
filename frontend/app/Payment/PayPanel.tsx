@@ -20,9 +20,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CircleX } from "lucide-react";
 import { getThemeSetting, resolveDark } from "@/lib/theme";
 
-const stripePromise = loadStripe(
-  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
-);
+const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+const stripePromise = publishableKey ? loadStripe(publishableKey) : null;
 
 const APPEARANCE = {
   variables: {
@@ -131,7 +130,7 @@ const CheckoutForm = ({
           <div className="flex flex-wrap items-center gap-3">
             <Button
               type="submit"
-              disabled={!checkout.canConfirm || isPaying}
+              disabled={!checkout.canConfirm || isPaying || !totalLabel}
               className="sm:w-auto"
             >
               {isPaying ? "Processing…" : `Pay ${totalLabel}`}
@@ -163,18 +162,42 @@ const PayPanel = ({
   clientSecret: string;
   totalLabel: string;
   onClosed: () => void;
-}) => (
-  <CheckoutElementsProvider
-    stripe={stripePromise}
-    options={{
-      clientSecret,
-      elementsOptions: {
-        appearance: stripeAppearance(),
-      },
-    }}
-  >
-    <CheckoutForm totalLabel={totalLabel} onClosed={onClosed} />
-  </CheckoutElementsProvider>
-);
+}) => {
+  if (!stripePromise) {
+    return (
+      <Card data-pay-panel>
+        <CardHeader>
+          <CardTitle className="text-lg">Payment</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Alert variant="destructive">
+            <CircleX aria-hidden="true" />
+            <AlertDescription>
+              Payments are not configured on this deployment. Set
+              NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY and reload.
+            </AlertDescription>
+          </Alert>
+          <Button type="button" variant="outline" className="mt-4" onClick={onClosed}>
+            Edit booking
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <CheckoutElementsProvider
+      stripe={stripePromise}
+      options={{
+        clientSecret,
+        elementsOptions: {
+          appearance: stripeAppearance(),
+        },
+      }}
+    >
+      <CheckoutForm totalLabel={totalLabel} onClosed={onClosed} />
+    </CheckoutElementsProvider>
+  );
+};
 
 export default PayPanel;

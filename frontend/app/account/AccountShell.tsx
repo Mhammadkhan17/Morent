@@ -36,7 +36,7 @@ export function AccountShell({ children }: { children: ReactNode }) {
 
   if (isLoading || !user) {
     return (
-      <div className="mx-auto w-full max-w-5xl space-y-4 px-4 py-10 sm:px-6">
+      <div className="mx-auto w-full max-w-7xl space-y-4 px-4 py-10 sm:px-6">
         <Skeleton className="h-9 w-64" />
         <Skeleton className="h-64 w-full" />
       </div>
@@ -44,7 +44,7 @@ export function AccountShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 sm:px-6 lg:gap-8 lg:px-8">
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:gap-8 lg:px-8">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">
           My account

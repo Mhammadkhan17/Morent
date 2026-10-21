@@ -19,8 +19,6 @@ class Settings(BaseSettings):
     # by Vercel at runtime; never set it manually.
     frontend_url: str | None = None
 
-    owner_email: str = ""
-
     @field_validator("database_url", "database_url_unpooled")
     @classmethod
     def _normalize_sslmode(cls, v: str) -> str:
