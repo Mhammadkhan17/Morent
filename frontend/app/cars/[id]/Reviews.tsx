@@ -29,7 +29,7 @@ const Reviews = () => {
             Reviews
           </h2>
           <span className="rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-            Sample reviews
+            Demo data
           </span>
         </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -38,7 +38,7 @@ const Reviews = () => {
             {average.toFixed(1)}
           </span>
           <span aria-hidden="true">·</span>
-          <span>{reviews.length} sample reviews</span>
+          <span>{reviews.length} demo reviews</span>
         </div>
       </div>
 

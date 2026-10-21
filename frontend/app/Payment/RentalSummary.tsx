@@ -93,7 +93,7 @@ const RentalSummary = ({
                 ))}
               </span>
               <span className="text-xs text-muted-foreground">
-                Sample reviews
+                Demo rating
               </span>
             </div>
           </div>

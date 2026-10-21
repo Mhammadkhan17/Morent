@@ -30,8 +30,8 @@ const TopSection = () => {
               Rent a car by the day
             </h1>
             <p className="max-w-[58%] text-sm font-medium leading-relaxed text-white/90 sm:text-base">
-              Browse the catalogue, get a price quote, and pay securely through
-              Stripe checkout.
+              Browse the catalogue, get a price quote, and pay through Stripe
+              checkout.
             </p>
             <div className="mt-1">
               <Button
@@ -60,11 +60,11 @@ const TopSection = () => {
           />
           <div className="absolute inset-x-0 top-0 flex flex-col items-start gap-3 p-6 sm:p-8">
             <h2 className="max-w-[60%] text-2xl font-bold leading-tight text-white sm:text-3xl">
-              From quote to booking in one flow
+              Quote, book, and pay on one page
             </h2>
             <p className="max-w-[58%] text-sm font-medium leading-relaxed text-white/90 sm:text-base">
-              Pickup and drop-off details, server-side pricing, and card
-              payment on a single page.
+              Pickup and drop-off fields, server-side pricing, and the Stripe
+              payment form.
             </p>
             <div className="mt-1">
               <Button

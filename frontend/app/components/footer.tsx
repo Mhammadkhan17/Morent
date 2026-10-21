@@ -18,7 +18,7 @@ export const Footer = () => {
           <section>
             <Logo className="mb-4 text-xl" />
             <p className="max-w-xs text-sm leading-relaxed text-muted-foreground md:max-w-sm">
-              Car rental by the day — browse the catalogue, get a quote, and
+              Car rental by the day. Browse the catalogue, get a quote, and
               book online.
             </p>
           </section>

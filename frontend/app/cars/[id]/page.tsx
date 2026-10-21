@@ -260,7 +260,7 @@ const CarDetailsPage = () => {
               <div className="mt-2 flex items-center gap-3">
                 <RatingStars rating={car.rating ?? 0} />
                 <span className="text-sm text-muted-foreground">
-                  Sample reviews
+                  Demo rating
                 </span>
               </div>
             </div>

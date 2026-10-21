@@ -17,7 +17,7 @@ const sans = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   title: "Morent — Car Rental",
   description:
-    "Browse the catalogue, get an instant quote, and book a rental car online with Stripe checkout.",
+    "Browse the catalogue, get a price quote, and book a rental car with Stripe checkout.",
 };
 
 export default function RootLayout({

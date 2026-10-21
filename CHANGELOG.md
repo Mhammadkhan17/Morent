@@ -37,6 +37,10 @@ All notable changes to Morent are documented here. Format loosely follows
 ### Copy — factual service-manual voice
 - Hero, footer, root metadata, and Confirmation step rewritten; marketing claims
   removed; duplicate trust blocks deduped to one honest Stripe statement.
+- Follow-up clarify: dropped residual "pay securely" / "instant quote" claims;
+  hero right card states the one-page flow without sales framing; footer line
+  uses plain sentences; rating rows say "Demo rating" (not "Sample reviews");
+  reviews section badge/count say "Demo data" / "n demo reviews".
 
 ### Admin analytics
 - Apply range shows "Applying…", disables while fetching, ignores stale responses,
