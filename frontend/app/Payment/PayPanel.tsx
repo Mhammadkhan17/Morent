@@ -141,7 +141,7 @@ const CheckoutForm = ({
               className="sm:w-auto"
             >
               {isPaying
-                ? "Processing…"
+                ? "Processing payment…"
                 : totalLabel
                   ? `Pay ${totalLabel}`
                   : "Pay"}

@@ -67,5 +67,7 @@ All notable changes to Morent are documented here. Format loosely follows
 ### Tests & gates
 - 71 frontend tests (11 files) covering explore filtering/URL state/retry,
   rental draft, api error normalization, validation, load-error card, rental
-  summary, and analytics loading/refresh; `npm run lint` and `npm run build`
-  green.
+  summary, and analytics loading/refresh.
+- Final cross-page sweep: no stale copy, color/radius drift, or primary-as-data
+  left; every `LoadErrorCard` has an accurate title; pay button reads
+  "Processing payment…". `npm run lint` and `npm run build` green.
