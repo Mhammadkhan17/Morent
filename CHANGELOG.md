@@ -32,7 +32,11 @@ All notable changes to Morent are documented here. Format loosely follows
   `processing` state, honest copy, retry); success CTA goes to /account/bookings.
 - A11y: `maxLength`, `disabled` plumbing, `autoComplete`, promo Enter-submit,
   `aria-live` total, focus targets on error/success, `aria-busy` during submits.
-- Mobile: rental summary ordered above the confirm/pay stack.
+- Mobile: rental summary is DOM-first so price precedes the confirm/pay stack
+  for eyes, keyboard, and screen readers (previous `order-first` fix only moved
+  visuals — tab order still started with the form); `lg:order-1/2` restores
+  form-left, sticky summary-right on desktop, and the loading skeleton mirrors
+  the same order.
 
 ### Copy — factual service-manual voice
 - Hero, footer, root metadata, and Confirmation step rewritten; marketing claims

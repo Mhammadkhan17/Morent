@@ -486,7 +486,48 @@ const PaymentContent = () => {
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
-        <div className="flex min-w-0 flex-1 flex-col gap-6">
+        {/* DOM-first on mobile: price precedes the confirm/pay stack; lg restores form-left */}
+        <div className="w-full lg:order-2 lg:sticky lg:top-6 lg:w-[400px] xl:w-[440px]">
+          {selectedCar ? (
+            <RentalSummary
+              key={selectedCar.id}
+              car={selectedCar}
+              quote={activeQuote}
+              quoteError={activeQuoteError}
+              isQuoting={isQuoting}
+              disabled={Boolean(clientSecret)}
+              promoCode={promoInput}
+              isPromoApplied={Boolean(appliedPromo)}
+              onPromoCodeChange={handlePromoCodeChange}
+              onApplyPromo={handleApplyPromo}
+              onRetryQuote={retryQuote}
+            />
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Rental summary</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  {carError ??
+                    "Car details not found. Pick a car from the catalogue to see its rental summary."}
+                </p>
+              </CardContent>
+              <CardFooter className="flex flex-wrap gap-3">
+                {carError && (
+                  <Button type="button" onClick={retryCar}>
+                    Try again
+                  </Button>
+                )}
+                <Button asChild variant="outline">
+                  <Link href="/explore">Browse cars</Link>
+                </Button>
+              </CardFooter>
+            </Card>
+          )}
+        </div>
+
+        <div className="flex min-w-0 flex-1 flex-col gap-6 lg:order-1">
           <BillingInfo
             formData={formData.billingInfo}
             errors={errors}
@@ -531,47 +572,6 @@ const PaymentContent = () => {
             </Alert>
           )}
         </div>
-
-        {/* Mobile: summary first so the price precedes the confirm/pay stack */}
-        <div className="order-first w-full lg:order-none lg:sticky lg:top-6 lg:w-[400px] xl:w-[440px]">
-          {selectedCar ? (
-            <RentalSummary
-              key={selectedCar.id}
-              car={selectedCar}
-              quote={activeQuote}
-              quoteError={activeQuoteError}
-              isQuoting={isQuoting}
-              disabled={Boolean(clientSecret)}
-              promoCode={promoInput}
-              isPromoApplied={Boolean(appliedPromo)}
-              onPromoCodeChange={handlePromoCodeChange}
-              onApplyPromo={handleApplyPromo}
-              onRetryQuote={retryQuote}
-            />
-          ) : (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Rental summary</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  {carError ??
-                    "Car details not found. Pick a car from the catalogue to see its rental summary."}
-                </p>
-              </CardContent>
-              <CardFooter className="flex flex-wrap gap-3">
-                {carError && (
-                  <Button type="button" onClick={retryCar}>
-                    Try again
-                  </Button>
-                )}
-                <Button asChild variant="outline">
-                  <Link href="/explore">Browse cars</Link>
-                </Button>
-              </CardFooter>
-            </Card>
-          )}
-        </div>
       </div>
     </div>
   );
@@ -580,7 +580,18 @@ const PaymentContent = () => {
 const PaymentFallback = () => (
   <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
     <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
-      <div className="flex min-w-0 flex-1 flex-col gap-6">
+      <div className="w-full lg:order-2 lg:w-[400px]">
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-44" />
+            <Skeleton className="h-4 w-full" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-40 w-full" />
+          </CardContent>
+        </Card>
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col gap-6 lg:order-1">
         {[1, 2, 3, 4].map((i) => (
           <Card key={i}>
             <CardHeader>
@@ -595,17 +606,6 @@ const PaymentFallback = () => (
             </CardContent>
           </Card>
         ))}
-      </div>
-      <div className="w-full lg:w-[400px]">
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-6 w-44" />
-            <Skeleton className="h-4 w-full" />
-          </CardHeader>
-          <CardContent>
-            <Skeleton className="h-40 w-full" />
-          </CardContent>
-        </Card>
       </div>
     </div>
   </div>
