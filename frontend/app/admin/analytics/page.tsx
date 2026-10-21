@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Loader2 } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -167,6 +168,7 @@ export default function AdminAnalyticsPage() {
   const [data, setData] = useState<Analytics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -186,12 +188,12 @@ export default function AdminAnalyticsPage() {
     return () => {
       cancelled = true;
     };
-  }, [range]);
+  }, [range, reloadKey]);
 
   const apply = () => {
-    if (isLoading) return;
     setIsLoading(true);
     setRange({ from, to });
+    setReloadKey((key) => key + 1);
   };
 
   const maxBookings = Math.max(
@@ -247,134 +249,147 @@ export default function AdminAnalyticsPage() {
         </Alert>
       )}
 
-      {isLoading || data === null ? (
+      {data === null ? (
         <Skeleton className="h-96 rounded-lg" />
       ) : (
-        <div className="grid gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Revenue by day</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {data.revenueByDay.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No revenue in this period.
-                </p>
-              ) : (
-                <RevenueChart data={data.revenueByDay} />
-              )}
-            </CardContent>
-          </Card>
-
-          <div className="grid gap-6 lg:grid-cols-2">
+        <div className="relative" aria-busy={isLoading}>
+          {isLoading && (
+            <div
+              className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-background/60"
+              role="status"
+            >
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                Updating…
+              </div>
+            </div>
+          )}
+          <div className="grid gap-6">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Revenue by week</CardTitle>
+                <CardTitle className="text-base">Revenue by day</CardTitle>
               </CardHeader>
               <CardContent>
-                {data.revenueByWeek.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No data.</p>
+                {data.revenueByDay.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No revenue in this period.
+                  </p>
                 ) : (
-                  <BarList
-                    colorClass="bg-chart-2"
-                    items={data.revenueByWeek.map((week) => {
-                      const peak = Math.max(
-                        ...data.revenueByWeek.map((w) => w.revenueCents),
-                        1
-                      );
-                      return {
-                        key: week.weekStart,
-                        label: `Week of ${shortLabel(week.weekStart)}`,
-                        display: formatCents(week.revenueCents),
-                        ratio: week.revenueCents / peak,
-                      };
-                    })}
-                  />
+                  <RevenueChart data={data.revenueByDay} />
                 )}
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Bookings by car</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {data.bookingsByCar.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No data.</p>
-                ) : (
-                  <BarList
-                    colorClass="bg-chart-4"
-                    items={data.bookingsByCar.map((item) => ({
-                      key: item.carId,
-                      label: item.carName,
-                      display: String(item.bookings),
-                      ratio: item.bookings / maxBookings,
-                    }))}
-                  />
-                )}
-              </CardContent>
-            </Card>
+            <div className="grid gap-6 lg:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Revenue by week</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {data.revenueByWeek.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No data.</p>
+                  ) : (
+                    <BarList
+                      colorClass="bg-chart-2"
+                      items={data.revenueByWeek.map((week) => {
+                        const peak = Math.max(
+                          ...data.revenueByWeek.map((w) => w.revenueCents),
+                          1
+                        );
+                        return {
+                          key: week.weekStart,
+                          label: `Week of ${shortLabel(week.weekStart)}`,
+                          display: formatCents(week.revenueCents),
+                          ratio: week.revenueCents / peak,
+                        };
+                      })}
+                    />
+                  )}
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">
-                  Utilization by car
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {data.utilizationByCar.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No data.</p>
-                ) : (
-                  <BarList
-                    colorClass="bg-chart-5"
-                    items={data.utilizationByCar.map((item) => ({
-                      key: item.carId,
-                      label: item.carName,
-                      display: `${item.utilizationPercent}%`,
-                      ratio: item.utilizationPercent / 100,
-                    }))}
-                  />
-                )}
-              </CardContent>
-            </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Bookings by car</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {data.bookingsByCar.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No data.</p>
+                  ) : (
+                    <BarList
+                      colorClass="bg-chart-4"
+                      items={data.bookingsByCar.map((item) => ({
+                        key: item.carId,
+                        label: item.carName,
+                        display: String(item.bookings),
+                        ratio: item.bookings / maxBookings,
+                      }))}
+                    />
+                  )}
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Top promo codes</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {data.topPromoCodes.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No data.</p>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Code</TableHead>
-                        <TableHead className="text-right">Uses</TableHead>
-                        <TableHead className="text-right">
-                          Discount given
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {data.topPromoCodes.map((item) => (
-                        <TableRow key={item.code}>
-                          <TableCell className="font-mono text-sm">
-                            {item.code}
-                          </TableCell>
-                          <TableCell className="text-right text-sm">
-                            {item.uses}
-                          </TableCell>
-                          <TableCell className="text-right text-sm font-medium">
-                            {formatCents(item.discountCents)}
-                          </TableCell>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">
+                    Utilization by car
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {data.utilizationByCar.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No data.</p>
+                  ) : (
+                    <BarList
+                      colorClass="bg-chart-5"
+                      items={data.utilizationByCar.map((item) => ({
+                        key: item.carId,
+                        label: item.carName,
+                        display: `${item.utilizationPercent}%`,
+                        ratio: item.utilizationPercent / 100,
+                      }))}
+                    />
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Top promo codes</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {data.topPromoCodes.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No data.</p>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Code</TableHead>
+                          <TableHead className="text-right">Uses</TableHead>
+                          <TableHead className="text-right">
+                            Discount given
+                          </TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
+                      </TableHeader>
+                      <TableBody>
+                        {data.topPromoCodes.map((item) => (
+                          <TableRow key={item.code}>
+                            <TableCell className="font-mono text-sm">
+                              {item.code}
+                            </TableCell>
+                            <TableCell className="text-right text-sm">
+                              {item.uses}
+                            </TableCell>
+                            <TableCell className="text-right text-sm font-medium">
+                              {formatCents(item.discountCents)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
       )}

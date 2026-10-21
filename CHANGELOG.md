@@ -45,6 +45,10 @@ All notable changes to Morent are documented here. Format loosely follows
 ### Admin analytics
 - Apply range shows "Applying…", disables while fetching, ignores stale responses,
   recovers from errors; charts use the data palette (chart-1/2/4/5).
+- Refresh re-enters loading reliably (`reloadKey` forces refetch even when the
+  range is unchanged); existing charts stay visible under a dimmed "Updating…"
+  overlay instead of collapsing to a skeleton; a failed refresh keeps the
+  last-good data alongside the error alert.
 
 ### Design system
 - `DESIGN.md` + `PRODUCT.md` + `.impeccable/` (design.json, critique) committed as
@@ -53,6 +57,7 @@ All notable changes to Morent are documented here. Format loosely follows
   section, loading skeleton).
 
 ### Tests & gates
-- 66 frontend tests (10 files) covering explore filtering/URL state/retry,
-  rental draft, api error normalization, validation, load-error card, and
-  rental summary; `npm run lint` and `npm run build` green.
+- 71 frontend tests (11 files) covering explore filtering/URL state/retry,
+  rental draft, api error normalization, validation, load-error card, rental
+  summary, and analytics loading/refresh; `npm run lint` and `npm run build`
+  green.
