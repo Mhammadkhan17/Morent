@@ -122,22 +122,22 @@ Morent's interface reads like well-made equipment documentation: everything legi
 
 The visual economy is deliberate. White paper, near-black ink, hairline borders, and exactly one saturated signal color — Cobalt Signal — carry the entire system. Density is high but orderly: 14px body text, 8px-grid spacing, and consistent 12px-cornered surfaces produce a catalogue rhythm that scans fast on both consumer browse pages and the admin dashboard. The confirmed anti-reference is decorative marketing fluff: no glassmorphism, no gradient-soup, no ornament that doesn't carry information.
 
-Dark mode is a full peer theme (light/dark/system toggle in the header), not an afterthought: neutrals shift to a blue-slate family while Cobalt Signal stays constant, so the brand accent never changes identity across themes.
+Dark mode is a full peer theme (light/dark/system toggle in the header), not an afterthought: neutrals shift to a blue-slate family, and Cobalt Signal keeps the same hue and chroma while lifting lightness (and flipping its label ink) so prices, links, and buttons clear WCAG AA on dark surfaces.
 
 **Key Characteristics:**
-- One signal color (Cobalt Signal, `hsl(225 80% 56%)`) against paper-white and near-black neutrals
+- One signal color (Cobalt Signal, light `hsl(225 80% 56%)` / dark `hsl(225 80% 67%)`) against paper-white and near-black neutrals
 - Hairline-border layering instead of shadows; surfaces are flat at rest
 - Compact, scannable type scale — 14px body, bold reserved for section anchors
 - 6px controls / 8px base radius / 12px surfaces / full pills for chips
 - Consistent 1152px content frame (`max-w-7xl`), 24px gutters between grid items
-- Light and dark themes share one accent; dark swaps neutrals to blue-slate (hue 217)
+- Light and dark themes share one accent identity (hue 225); dark swaps neutrals to blue-slate (hue 217)
 
 ## Colors
 
 The palette is a single-accident discipline: near-neutral zinc in light mode, blue-slate in dark mode, and one cobalt blue doing all the pointing.
 
 ### Primary
-- **Cobalt Signal** (`hsl(225 80% 56%)`): the only saturated color in the system. Used for CTAs, price figures, focus rings, active borders (`border-primary/40` hover on car cards), the logo accent, and the left hero card's field. The Stripe payment appearance mirrors it as `#3563E9` in `PayPanel.tsx` — same signal, one layer down.
+- **Cobalt Signal** (`hsl(225 80% 56%)` light / `hsl(225 80% 67%)` dark): the only saturated color in the system. Used for CTAs, price figures, focus rings, active borders (`border-primary/40` hover on car cards), the logo accent, and the left hero card's field. In dark mode the signal lifts so price/link text hits 4.5:1 on cards; `--primary-foreground` flips to blue-slate ink (`hsl(222 47% 11%)`) so button and badge labels stay legible. The Stripe payment appearance mirrors the light signal as `#3563E9` in `PayPanel.tsx` — same hue lock, one layer down.
 
 ### Neutral
 - **Paper White** (`hsl(0 0% 100%)`): page and card background in light mode.
@@ -147,13 +147,13 @@ The palette is a single-accident discipline: near-neutral zinc in light mode, bl
 - **Hairline** (`hsl(240 5.9% 90%)`): 1px borders on cards, inputs, dividers — the primary depth mechanism.
 
 ### Destructive
-- **Alert Red** (`hsl(0 84.2% 60.2%)`): destructive actions and error states only. Never decorative.
+- **Alert Red** (`hsl(0 84.2% 60.2%)` light / `hsl(0 75% 66%)` dark): destructive actions and error states only. Never decorative. Dark mode brightens Alert Red so error copy clears 4.5:1 on cards and badges remain visible; `--destructive-foreground` uses the same blue-slate ink as primary labels.
 
 ### Data (charts)
-- **Coral** (`hsl(12 76% 61%)`), **Teal** (`hsl(173 58% 39%)`), **Deep Slate** (`hsl(197 37% 24%)`), **Sand** (`hsl(43 74% 66%)`), **Amber** (`hsl(27 87% 67%)`) — the five dashboard chart hues, in fixed order `chart-1`…`chart-5`.
+- **Coral** (`hsl(12 76% 61%)`), **Teal** (`hsl(173 58% 39%)`), **Deep Slate** (`hsl(197 37% 24%)`), **Sand** (`hsl(43 74% 66%)`), **Amber** (`hsl(27 87% 67%)`) — the five dashboard chart hues, in fixed order `chart-1`…`chart-5`. Dark `chart-1` lifts to `hsl(220 70% 58%)` for contrast on card.
 
 ### Dark Theme Counterpart
-Dark mode keeps every accent (`primary`, `ring`, `destructive` ratios shift slightly) and swaps neutrals: background `hsl(222 47% 11%)`, card `hsl(217 33% 17%)`, surfaces `hsl(217 33% 22%)`, secondary text `hsl(215 20% 65%)`.
+Dark mode keeps the blue-slate neutrals and re-tunes the signal tokens for contrast: background `hsl(222 47% 11%)`, card `hsl(217 33% 17%)`, surfaces `hsl(217 33% 22%)`, secondary text `hsl(215 20% 65%)`, hairline `hsl(217 33% 30%)`, primary/ring `hsl(225 80% 67%)` with ink labels, destructive `hsl(0 75% 66%)` with ink labels.
 
 ### Named Rules
 **The Cobalt Signal Rule.** Cobalt Signal marks what is actionable or costs money: buttons, prices, focus rings, links in emphasis, active states. It must not appear as decoration, and no screen should read as "a blue theme."
@@ -235,7 +235,7 @@ Borders are 1px hairlines everywhere (`border-border` applied globally). Clippin
 - **Mobile:** hamburger opens a right-side Sheet (12px left corners) repeating logo, search, links, and actions; overlays use `shadow-lg`.
 
 ### Signature Components
-- **Twin Hero Cards (TopSection):** two exact 640×360 panels, `rounded-xl`, `overflow-hidden` — left is a Cobalt Signal field, right is near-black (`bg-foreground`, blue-slate `bg-card` in dark). Each carries faint white line-art (concentric rings / chevrons at 6% opacity) as background, white overlay copy (bold 24→30px headline, 14→16px subcopy at 90% white), a paper-colored outline CTA, and a car cutout PNG anchored bottom-right.
+- **Twin Hero Cards (TopSection):** two exact 640×360 panels, `rounded-xl`, `overflow-hidden` — left is a Cobalt Signal field, right is near-black (`bg-foreground`, blue-slate `bg-card` in dark). Each carries faint white line-art (concentric rings / chevrons at 6% opacity) as background, overlay copy on the left card in `text-primary-foreground` (ink on dark-mode cobalt; white on light cobalt) and white on the right card (bold 24→30px headline, 14→16px subcopy at 90%), a paper-colored outline CTA, and a car cutout PNG anchored bottom-right.
 - **Car Card:** interactive card whose entire surface is a link (`rounded-xl` + `ring-2 ring-ring` focus); hover lifts only the border to `border-primary/40`. Interior: title + zinc rating pill, muted spec row (fuel / transmission / seats with 16px lucide icons), contained car render with skeleton-until-loaded fade (300ms opacity), then the footer split — price in Cobalt Signal (`text-lg font-semibold text-primary`) with a 12px "per day" caption, and a `Rent now` CTA chip (36×32px, `rounded-md`, Cobalt Signal, 90% on group-hover).
 
 ## Do's and Don'ts
@@ -246,7 +246,7 @@ Borders are 1px hairlines everywhere (`border-border` applied globally). Clippin
 - **Do** keep body copy at 14px (`text-sm`) and cap font weight at 700.
 - **Do** use the radius ladder as specified: 6px controls, 12px surfaces, full pills for chips.
 - **Do** keep grids at 24px gutters inside the 1152px (`max-w-7xl`) frame, with `16/24/32px` responsive page padding.
-- **Do** verify both themes: light (paper/zinc) and dark (blue-slate) must keep the same Cobalt Signal accent.
+- **Do** verify both themes: light (paper/zinc) and dark (blue-slate) share the Cobalt Signal hue; dark may lift lightness and flip label ink for contrast, never change hue 225.
 
 ### Don't:
 - **Don't** flood screens with blue — no blue page backgrounds outside the single hero card, no blue gradients (The One-Field Rule).

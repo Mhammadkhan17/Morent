@@ -8,7 +8,8 @@
         "role": "primary",
         "displayName": "Cobalt Signal",
         "canonical": "hsl(225 80% 56%)",
-        "dark": "hsl(225 80% 56%)",
+        "dark": "hsl(225 80% 67%)",
+        "darkForeground": "hsl(222 47% 11%)",
         "tonalRamp": [
           "oklch(15% 0.045 262)",
           "oklch(25% 0.085 262)",
@@ -72,7 +73,7 @@
         "role": "neutral",
         "displayName": "Hairline",
         "canonical": "hsl(240 5.9% 90%)",
-        "dark": "hsl(217 33% 22%)",
+        "dark": "hsl(217 33% 30%)",
         "tonalRamp": [
           "oklch(15% 0.006 258)",
           "oklch(28% 0.006 258)",
@@ -104,7 +105,8 @@
         "role": "destructive",
         "displayName": "Alert Red",
         "canonical": "hsl(0 84.2% 60.2%)",
-        "dark": "hsl(0 62.8% 30.6%)",
+        "dark": "hsl(0 75% 66%)",
+        "darkForeground": "hsl(222 47% 11%)",
         "tonalRamp": [
           "oklch(15% 0.06 27)",
           "oklch(25% 0.11 27)",
@@ -272,21 +274,21 @@
       "name": "Hero Card",
       "kind": "custom",
       "refersTo": "button-outline",
-      "description": "Signature twin hero panel — Cobalt Signal (or near-black twin) field, faint white line-art at 6%, white overlay copy, paper outline CTA.",
+      "description": "Signature twin hero panel — Cobalt Signal (or near-black twin) field, faint white line-art at 6%, overlay copy in primary-foreground (ink on dark cobalt), paper outline CTA.",
       "html": "<div class=\"ds-hero-card\"><svg class=\"ds-hero-art\" viewBox=\"0 0 320 200\" fill=\"none\" aria-hidden=\"true\"><circle cx=\"80\" cy=\"170\" r=\"50\" stroke=\"white\" stroke-opacity=\"0.06\" stroke-width=\"14\"/><circle cx=\"80\" cy=\"170\" r=\"90\" stroke=\"white\" stroke-opacity=\"0.06\" stroke-width=\"14\"/><circle cx=\"80\" cy=\"170\" r=\"130\" stroke=\"white\" stroke-opacity=\"0.06\" stroke-width=\"14\"/></svg><div class=\"ds-hero-copy\"><h2 class=\"ds-hero-title\">The Best Platform for Car Rental</h2><p class=\"ds-hero-sub\">Ease of doing car rental safely and reliably, and at a low price.</p><button class=\"ds-hero-cta\">Rent a car <svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"M5 12h14M13 6l6 6-6 6\"/></svg></button></div></div>",
-      "css": ".ds-hero-card { position: relative; box-sizing: border-box; width: 100%; max-width: 480px; height: 220px; overflow: hidden; border-radius: 12px; background: hsl(var(--primary)); font-family: 'Plus Jakarta Sans', sans-serif; } .ds-hero-art { position: absolute; left: 0; bottom: 0; width: 70%; height: auto; } .ds-hero-copy { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 24px; } .ds-hero-title { max-width: 60%; margin: 0; font-size: 22px; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; color: #ffffff; } .ds-hero-sub { max-width: 58%; margin: 0; font-size: 13px; font-weight: 500; line-height: 1.5; color: rgb(255 255 255 / 0.9); } .ds-hero-cta { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 16px; border: 1px solid hsl(var(--input)); border-radius: 6px; background: hsl(var(--background)); color: hsl(var(--foreground)); box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); font-size: 14px; font-weight: 500; cursor: pointer; transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-hero-cta:hover { background: hsl(var(--background) / 0.9); } .ds-hero-cta:focus-visible { outline: none; box-shadow: 0 0 0 1px hsl(var(--ring)); }"
+      "css": ".ds-hero-card { position: relative; box-sizing: border-box; width: 100%; max-width: 480px; height: 220px; overflow: hidden; border-radius: 12px; background: hsl(var(--primary)); font-family: 'Plus Jakarta Sans', sans-serif; } .ds-hero-art { position: absolute; left: 0; bottom: 0; width: 70%; height: auto; } .ds-hero-copy { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 24px; } .ds-hero-title { max-width: 60%; margin: 0; font-size: 22px; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; color: hsl(var(--primary-foreground)); } .ds-hero-sub { max-width: 58%; margin: 0; font-size: 13px; font-weight: 500; line-height: 1.5; color: hsl(var(--primary-foreground) / 0.9); } .ds-hero-cta { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 16px; border: 1px solid hsl(var(--input)); border-radius: 6px; background: hsl(var(--background)); color: hsl(var(--foreground)); box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); font-size: 14px; font-weight: 500; cursor: pointer; transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-hero-cta:hover { background: hsl(var(--background) / 0.9); } .ds-hero-cta:focus-visible { outline: none; box-shadow: 0 0 0 1px hsl(var(--ring)); }"
     }
   ],
   "narrative": {
     "northStar": "The Precision Service Manual",
-    "overview": "Morent's interface reads like well-made equipment documentation: everything legible, labeled, and inspectable. The system is confident, utilitarian, and clean — it states facts (price, spec, availability) plainly and reserves emphasis for the moments that decide a rental. This mirrors the product's own thesis from PRODUCT.md: the whole stack is hand-built and open to inspection, so the UI likewise hides nothing.\n\nThe visual economy is deliberate. White paper, near-black ink, hairline borders, and exactly one saturated signal color — Cobalt Signal — carry the entire system. Density is high but orderly: 14px body text, 8px-grid spacing, and consistent 12px-cornered surfaces produce a catalogue rhythm that scans fast on both consumer browse pages and the admin dashboard. The confirmed anti-reference is decorative marketing fluff: no glassmorphism, no gradient-soup, no ornament that doesn't carry information.\n\nDark mode is a full peer theme (light/dark/system toggle in the header), not an afterthought: neutrals shift to a blue-slate family while Cobalt Signal stays constant, so the brand accent never changes identity across themes.",
+    "overview": "Morent's interface reads like well-made equipment documentation: everything legible, labeled, and inspectable. The system is confident, utilitarian, and clean — it states facts (price, spec, availability) plainly and reserves emphasis for the moments that decide a rental. This mirrors the product's own thesis from PRODUCT.md: the whole stack is hand-built and open to inspection, so the UI likewise hides nothing.\n\nThe visual economy is deliberate. White paper, near-black ink, hairline borders, and exactly one saturated signal color — Cobalt Signal — carry the entire system. Density is high but orderly: 14px body text, 8px-grid spacing, and consistent 12px-cornered surfaces produce a catalogue rhythm that scans fast on both consumer browse pages and the admin dashboard. The confirmed anti-reference is decorative marketing fluff: no glassmorphism, no gradient-soup, no ornament that doesn't carry information.\n\nDark mode is a full peer theme (light/dark/system toggle in the header), not an afterthought: neutrals shift to a blue-slate family, and Cobalt Signal keeps the same hue and chroma while lifting lightness (and flipping its label ink) so prices, links, and buttons clear WCAG AA on dark surfaces.",
     "keyCharacteristics": [
-      "One signal color (Cobalt Signal, hsl(225 80% 56%)) against paper-white and near-black neutrals",
+      "One signal color (Cobalt Signal, light hsl(225 80% 56%) / dark hsl(225 80% 67%)) against paper-white and near-black neutrals",
       "Hairline-border layering instead of shadows; surfaces are flat at rest",
       "Compact, scannable type scale — 14px body, bold reserved for section anchors",
       "6px controls / 8px base radius / 12px surfaces / full pills for chips",
       "Consistent 1152px content frame (max-w-7xl), 24px gutters between grid items",
-      "Light and dark themes share one accent; dark swaps neutrals to blue-slate (hue 217)"
+      "Light and dark themes share one accent identity (hue 225); dark swaps neutrals to blue-slate (hue 217)"
     ],
     "rules": [
       {
@@ -321,7 +323,7 @@
       "Do keep body copy at 14px (text-sm) and cap font weight at 700.",
       "Do use the radius ladder as specified: 6px controls, 12px surfaces, full pills for chips.",
       "Do keep grids at 24px gutters inside the 1152px (max-w-7xl) frame, with 16/24/32px responsive page padding.",
-      "Do verify both themes: light (paper/zinc) and dark (blue-slate) must keep the same Cobalt Signal accent."
+      "Do verify both themes: light (paper/zinc) and dark (blue-slate) share the Cobalt Signal hue; dark may lift lightness and flip label ink for contrast, never change hue 225."
     ],
     "donts": [
       "Don't flood screens with blue — no blue page backgrounds outside the single hero card, no blue gradients (The One-Field Rule).",

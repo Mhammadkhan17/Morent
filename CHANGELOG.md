@@ -63,6 +63,13 @@ All notable changes to Morent are documented here. Format loosely follows
   Pick-Up swap button inherits control radius, PaymentMethod blocks carry one
   claim each (when/where · what · Stripe never stores details), BarList default
   bar color → `bg-chart-1` (data palette, not the action color).
+- Dark mode lifts Cobalt Signal for AA: primary/ring `225 80% 67%` with ink
+  labels `222 47% 11%` (was 2.87:1 on card), destructive `0 75% 66%` for
+  readable error text (was 1.48:1), border/input `217 33% 30%` so hairlines
+  separate from surfaces, chart-1 lifted to `220 70% 58%`; hero copy tracks
+  `text-primary-foreground` (same near-white in light). Stripe `#3563E9`
+  unchanged (payment brand lock); hue 225 identity kept, only lightness/ink
+  flip. DESIGN.md + `.impeccable/design.json` updated to match.
 
 ### Tests & gates
 - 71 frontend tests (11 files) covering explore filtering/URL state/retry,

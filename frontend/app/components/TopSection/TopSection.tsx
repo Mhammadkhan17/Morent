@@ -26,10 +26,10 @@ const TopSection = () => {
             priority
           />
           <div className="absolute inset-x-0 top-0 flex flex-col items-start gap-3 p-6 sm:p-8">
-            <h1 className="max-w-[60%] text-2xl font-bold leading-tight text-white sm:text-3xl">
+            <h1 className="max-w-[60%] text-2xl font-bold leading-tight text-primary-foreground sm:text-3xl">
               Rent a car by the day
             </h1>
-            <p className="max-w-[58%] text-sm font-medium leading-relaxed text-white/90 sm:text-base">
+            <p className="max-w-[58%] text-sm font-medium leading-relaxed text-primary-foreground/90 sm:text-base">
               Browse the catalogue, get a price quote, and pay through Stripe
               checkout.
             </p>
