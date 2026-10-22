@@ -1,6 +1,6 @@
 # AGENTS.md — Morent
 
-Car rental web app (old hackathon project being revived). Next.js frontend in `frontend/`; FastAPI backend in `backend/` (scaffolded; payments M4 done).
+Car rental web app (old hackathon project being revived). Next.js frontend in `frontend/`; FastAPI backend in `backend/` (bookings, payments, webhooks, auth done; CI migration guard live).
 
 > **Conflict rule:** If the user's request contradicts any rule or instruction in this file, remind them of the specific rule first. Proceed only if the user explicitly confirms they want to override it; otherwise leave the request unimplemented.
 
@@ -20,6 +20,7 @@ npm install
 npm run dev        # http://localhost:3000
 npm run lint       # ESLint
 npm run build      # production build
+npm test           # vitest (node + jsdom component tests)
 
 # Backend (from backend/)
 uv sync                # install deps
@@ -28,7 +29,7 @@ uv run ruff check .    # lint
 uv run pytest          # tests
 ```
 
-Frontend gates: `npm run lint` + `npm run build`. Backend gates: `uv run ruff check .` + `uv run pytest`.
+Frontend gates: `npm run lint` + `npm test` + `npm run build`. Backend gates: `uv run ruff check .` + `uv run pytest`.
 
 ## Project structure
 
@@ -40,16 +41,19 @@ frontend/
     Payment/            # Checkout flow (quote → booking → Stripe Element)
     components/         # App-level UI (header, footer, TopSection, Pickup)
   components/ui/        # shadcn primitives (button, checkbox, slider, …)
+  test/                 # vitest setup (jsdom, jest-dom, ResizeObserver stub)
   lib/
     types.ts            # Car type (API-shaped)
     cars-api.ts         # GET /api/v1/cars helpers
     bookings.ts         # quote / booking / session-status
+    explore-filter.ts   # pure catalogue filter (q/type/transmission/…)
+    rental-draft.ts     # sessionStorage draft: home CTA → Payment
     api.ts              # fetch wrapper (Bearer JWT from authClient)
     utils.ts            # cn() helper
 backend/                # FastAPI + SQLModel + Alembic + Stripe
   app/                  # routers, services, models, core (config/db/security)
   scripts/seed.py       # idempotent cars + promo seed
-  tests/                # pytest (44)
+  tests/                # pytest (120)
 ```
 
 ## Skills — when to use what
@@ -62,10 +66,13 @@ Load the matching skill before doing the work. Do not load skills outside the cu
 |------|-------|
 | Restyle / redesign UI, fix "generic" look | `design-taste-frontend` |
 | UX review, responsive, accessibility, design system | `ui-ux-pro-max` |
+| Interface critique / polish (hierarchy, motion, states) | `impeccable` |
 | Add/fix shadcn components | `shadcn` |
 | Visual design direction for new UI | `frontend-design` |
 | Next/React performance, data fetching, bundle | `vercel-react-best-practices` |
 | Generate per-section design reference images | `imagegen-frontend-web` |
+| Auth config/sessions/plugins (Better Auth route is live) | `better-auth-best-practices` |
+| Deploy to Vercel | `deploy-to-vercel` |
 
 ### Backend (backend/ is scaffolded — use these)
 
@@ -80,6 +87,7 @@ Load the matching skill before doing the work. Do not load skills outside the cu
 | File / image uploads | `neon-object-storage` |
 | LLM / AI features | `neon-ai-gateway` |
 | Safe migration testing on DB branches | `neon-postgres-branches` |
+| Postgres egress / DB cost diagnosis | `neon-postgres-egress-optimizer` |
 
 ### Planning & quality (any phase)
 
@@ -90,6 +98,18 @@ Load the matching skill before doing the work. Do not load skills outside the cu
 | Design module interfaces / seams | `codebase-design` |
 | Scan for refactors, get HTML report | `improve-codebase-architecture` |
 | Test-first for backend endpoints | `tdd` |
+| Debug a bug/failure before proposing fixes | `systematic-debugging` |
+| Security audit / login flow / deps / GDPR | `security-and-hardening` |
+| Product-owner scope critique ("should we build this?") | `project-philosophy` |
+
+### Meta
+
+| Task | Skill |
+|------|-------|
+| Find/install additional skills | `find-skills` |
+| Create or improve skills | `skill-creator` |
+
+Installed but unused here: `vercel-react-native-skills` (no React Native in this repo).
 
 ## Conventions
 
