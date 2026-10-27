@@ -1,6 +1,6 @@
 # AGENTS.md — Morent
 
-Car rental web app (old hackathon project being revived). Next.js frontend in `frontend/`; FastAPI backend in `backend/` (bookings, payments, webhooks, auth done; CI migration guard live).
+Car rental web app (under active development). Next.js frontend in `frontend/`; FastAPI backend in `backend/` (bookings, payments, webhooks, auth done; CI migration guard live).
 
 > **Conflict rule:** If the user's request contradicts any rule or instruction in this file, remind them of the specific rule first. Proceed only if the user explicitly confirms they want to override it; otherwise leave the request unimplemented.
 
