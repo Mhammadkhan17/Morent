@@ -52,6 +52,7 @@ export interface AdminCarPayload {
   tags?: string[];
   rating?: number | null;
   status?: string;
+  quantity?: number;
 }
 
 export interface AdminPromo {

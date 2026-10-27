@@ -67,6 +67,7 @@ class AdminCarCreate(BaseModel):
     tags: list[str] = Field(default_factory=list)
     rating: float | None = None
     status: Literal["available", "maintenance", "hidden"] = "available"
+    quantity: int = Field(default=1, ge=1)
 
     model_config = {"populate_by_name": True}
 
@@ -85,6 +86,7 @@ class AdminCarUpdate(BaseModel):
     tags: list[str] | None = None
     rating: float | None = None
     status: Literal["available", "maintenance", "hidden"] | None = None
+    quantity: int | None = Field(default=None, ge=1)
 
     model_config = {"populate_by_name": True}
 

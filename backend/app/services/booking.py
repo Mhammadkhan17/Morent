@@ -61,10 +61,14 @@ async def assert_no_overlap(
     dropoff_date: date,
     *,
     exclude_user_id: str | None = None,
+    quantity: int = 1,
 ) -> None:
-    """Block when ANY other hold overlaps. The caller's own pending rows are
-    excluded only when a supersede follows (retry/edit of their own booking);
-    their confirmed/active rows still conflict."""
+    """Block when overlapping holds already consume every fleet unit.
+
+    The caller's own pending rows are excluded only when a supersede follows
+    (retry/edit of their own booking); their confirmed/active rows still
+    conflict. `quantity` is the car's fleet size (>=1) — with quantity=5 a
+    sixth concurrent overlap 409s while the first five proceed."""
     conds = [
         Booking.car_id == car_id,
         Booking.status.in_(("pending", "confirmed", "active")),
@@ -79,7 +83,7 @@ async def assert_no_overlap(
             )
         )
     result = await session.exec(select(Booking).where(*conds))
-    if result.first() is not None:
+    if len(result.all()) >= quantity:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Car is already booked for the selected dates",
@@ -137,6 +141,7 @@ async def create_booking(
         payload.pickup.date,
         payload.dropoff.date,
         exclude_user_id=user_id,
+        quantity=car.quantity,
     )
     await supersede_own_pending(
         session, stripe_service, user_id=user_id, car_id=payload.car_id

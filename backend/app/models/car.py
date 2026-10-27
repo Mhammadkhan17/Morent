@@ -23,6 +23,7 @@ class Car(SQLModel, table=True):
     image_width: int | None = None
     image_height: int | None = None
     status: str = Field(default="available")  # available | maintenance | hidden
+    quantity: int = Field(default=1)  # fleet units of this listing (>=1)
 
     @field_serializer("price_per_day", "original_price", "rating")
     def _money_to_json_number(self, value: Decimal | None) -> float | None:

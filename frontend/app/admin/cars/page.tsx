@@ -121,6 +121,7 @@ export default function AdminCarsPage() {
                     <TableRow>
                       <TableHead>Car</TableHead>
                       <TableHead>Type</TableHead>
+                      <TableHead className="text-right">Units</TableHead>
                       <TableHead className="text-right">Price / day</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
@@ -148,6 +149,9 @@ export default function AdminCarsPage() {
                           </div>
                         </TableCell>
                         <TableCell className="text-sm">{car.type}</TableCell>
+                        <TableCell className="text-right text-sm">
+                          {car.quantity}
+                        </TableCell>
                         <TableCell className="text-right text-sm font-medium">
                           {formatMoney(car.pricePerDay)}
                         </TableCell>

@@ -49,6 +49,7 @@ const toPayload = (form: {
   tags: string;
   rating: string;
   status: string;
+  quantity: string;
 }): AdminCarPayload => ({
   name: form.name.trim(),
   type: form.type.trim(),
@@ -68,6 +69,7 @@ const toPayload = (form: {
     .filter((tag) => tag !== ""),
   rating: form.rating ? Number.parseFloat(form.rating) : null,
   status: form.status,
+  quantity: Number.parseInt(form.quantity, 10) || 1,
 });
 
 export function CarFormDialog({
@@ -93,6 +95,7 @@ export function CarFormDialog({
     tags: (car?.tags ?? []).join(", "),
     rating: car?.rating != null ? String(car.rating) : "",
     status: car?.status ?? "available",
+    quantity: car ? String(car.quantity) : "1",
   }));
   const [imageDraft, setImageDraft] = useState("");
   const [isBusy, setIsBusy] = useState(false);
@@ -223,6 +226,19 @@ export function CarFormDialog({
                   ))}
                 </SelectContent>
               </Select>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="car-quantity">Fleet units</FieldLabel>
+              <Input
+                id="car-quantity"
+                required
+                type="number"
+                min="1"
+                step="1"
+                value={form.quantity}
+                onChange={(event) => set("quantity", event.target.value)}
+                placeholder="1"
+              />
             </Field>
             <Field>
               <FieldLabel htmlFor="car-price">Price per day (USD)</FieldLabel>

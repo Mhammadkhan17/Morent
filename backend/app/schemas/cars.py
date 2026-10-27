@@ -20,6 +20,7 @@ class CarRead(BaseModel):
     tags: list[str]
     rating: float | None
     image_metadata: dict[str, int] | None = Field(alias="imageMetadata")
+    quantity: int
 
 
 def car_to_read(car: Car) -> CarRead:
@@ -43,4 +44,5 @@ def car_to_read(car: Car) -> CarRead:
         tags=list(car.tags or []),
         rating=float(car.rating) if car.rating is not None else None,
         image_metadata=meta,
+        quantity=car.quantity,
     )

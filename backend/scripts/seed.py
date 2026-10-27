@@ -37,6 +37,7 @@ def fixture_car_to_model(raw: dict) -> Car:
         image_width=meta.get("width"),
         image_height=meta.get("height"),
         status="available",
+        quantity=raw.get("quantity", 1),
     )
 
 

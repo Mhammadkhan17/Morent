@@ -88,6 +88,34 @@ async def test_overlap_returns_409(client, seeded_car, db_session):
 
 
 @pytest.mark.asyncio
+async def test_quantity_two_allows_second_unit(client, seeded_car, db_session):
+    """Fleet quantity=2: one overlapping hold does not block a second unit;
+    once both units are held the next overlap 409s."""
+    seeded_car.quantity = 2
+    db_session.add(seeded_car)
+    await db_session.commit()
+
+    start = date.today() + timedelta(days=30)
+    await _seed_booking(db_session, pickup=start, dropoff=start + timedelta(days=2))
+
+    body = booking_body()
+    body["pickup"]["date"] = start.isoformat()
+    body["dropoff"]["date"] = (start + timedelta(days=2)).isoformat()
+    first = await client.post("/api/v1/bookings", json=body)
+    assert first.status_code == 201
+
+    # both units now held → third concurrent overlap is blocked
+    await _seed_booking(
+        db_session,
+        pickup=start,
+        dropoff=start + timedelta(days=2),
+        user_id="third_customer",
+    )
+    third = await client.post("/api/v1/bookings", json=body)
+    assert third.status_code == 409
+
+
+@pytest.mark.asyncio
 async def test_own_confirmed_overlap_409(client, seeded_car, db_session):
     """The caller's own *confirmed* booking blocks a second overlapping
     booking — only own *pending* rows are superseded, never ignored."""

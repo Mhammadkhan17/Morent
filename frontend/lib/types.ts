@@ -15,6 +15,8 @@ export interface Car {
   tags: string[];
   rating: number | null;
   imageMetadata: { width: number; height: number } | null;
+  /** fleet units of this listing (>=1); default 1 */
+  quantity: number;
 }
 
 export interface Quote {

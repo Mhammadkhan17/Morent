@@ -222,6 +222,7 @@ async def create_admin_car(
         tags=list(payload.tags),
         rating=Decimal(str(payload.rating)) if payload.rating is not None else None,
         status=payload.status,
+        quantity=payload.quantity,
     )
     session.add(car)
     await session.commit()

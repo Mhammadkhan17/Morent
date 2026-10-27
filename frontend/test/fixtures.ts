@@ -16,6 +16,7 @@ export function makeCar(overrides: Partial<Car> = {}): Car {
     tags: [],
     rating: null,
     imageMetadata: null,
+    quantity: 1,
     ...overrides,
   };
 }
