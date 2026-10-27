@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { CircleUser, LogOut, ShieldCheck } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -14,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/AuthProvider";
+import UserAvatar from "./UserAvatar";
 
 /** Account area: avatar opens a dropdown (name, email, Admin, sign out). */
 export default function AuthArea() {
@@ -40,11 +40,11 @@ export default function AuthArea() {
           aria-label="Account menu"
           className="rounded-full"
         >
-          <Avatar className="size-9">
-            <AvatarFallback>
-              {(user.name ?? user.email).charAt(0).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
+          <UserAvatar
+            name={user.name}
+            email={user.email}
+            className="size-9"
+          />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-60">

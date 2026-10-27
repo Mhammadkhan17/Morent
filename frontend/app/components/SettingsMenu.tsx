@@ -1,6 +1,6 @@
 "use client";
 
-import { Settings } from "lucide-react";
+import { Monitor, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -20,9 +20,16 @@ const OPTIONS: { value: ThemeSetting; label: string }[] = [
   { value: "system", label: "System" },
 ];
 
-/** Header action: appearance settings (light/dark/system theme). */
+const THEME_ICON = {
+  light: Sun,
+  dark: Moon,
+  system: Monitor,
+} as const;
+
+/** Header action: appearance — icon reflects the current theme choice. */
 export default function SettingsMenu() {
   const theme = useThemeSetting();
+  const Icon = THEME_ICON[theme];
 
   return (
     <DropdownMenu>
@@ -30,14 +37,14 @@ export default function SettingsMenu() {
         <Button
           variant="ghost"
           size="icon"
-          aria-label="Settings"
+          aria-label={`Theme: ${theme}`}
           className="text-muted-foreground"
         >
-          <Settings aria-hidden="true" />
+          <Icon aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-44">
-        <DropdownMenuLabel>Settings</DropdownMenuLabel>
+        <DropdownMenuLabel>Theme</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuRadioGroup
           value={theme}

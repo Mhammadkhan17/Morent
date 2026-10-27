@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Check, LogOut } from "lucide-react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { Camera, Check, LogOut, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -15,6 +15,91 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchProfile, updateProfile } from "@/lib/account";
 import { useAuth } from "@/lib/AuthProvider";
+import UserAvatar from "@/app/components/UserAvatar";
+import {
+  fileToAvatarPhoto,
+  getAvatarPhoto,
+  setAvatarPhoto,
+  subscribeAvatarPhoto,
+} from "@/lib/avatar";
+
+function ProfilePhotoOption() {
+  const { user } = useAuth();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [processing, setProcessing] = useState(false);
+  const photo = useSyncExternalStore(
+    subscribeAvatarPhoto,
+    getAvatarPhoto,
+    () => null
+  );
+
+  const onPick = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setProcessing(true);
+    setPhotoError(null);
+    try {
+      setAvatarPhoto(await fileToAvatarPhoto(file));
+    } catch (err) {
+      setPhotoError(err instanceof Error ? err.message : "Could not use that image.");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-5">
+      <UserAvatar
+        name={user?.name}
+        email={user?.email}
+        className="size-16 text-xl"
+      />
+      <div className="space-y-2">
+        <p className="text-sm font-medium">Profile photo</p>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          className="sr-only"
+          onChange={onPick}
+          aria-label="Choose profile photo"
+        />
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={processing}
+            onClick={() => inputRef.current?.click()}
+          >
+            <Camera aria-hidden="true" className="mr-2 size-4" />
+            {processing ? "Saving…" : photo ? "Change photo" : "Upload photo"}
+          </Button>
+          {photo && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground"
+              onClick={() => setAvatarPhoto(null)}
+            >
+              <Trash2 aria-hidden="true" className="mr-2 size-4" />
+              Remove
+            </Button>
+          )}
+        </div>
+        {photoError && <p className="text-xs text-destructive">{photoError}</p>}
+        <p className="text-xs text-muted-foreground">
+          {photo
+            ? "Saved on this device."
+            : "Optional — initials are used until you add one. Saved on this device."}
+        </p>
+      </div>
+    </div>
+  );
+}
 
 export default function AccountSettingsPage() {
   const { user, signOut } = useAuth();
@@ -65,7 +150,8 @@ export default function AccountSettingsPage() {
             {user?.email} — display name is managed by your auth provider.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
+          <ProfilePhotoOption />
           <form onSubmit={submit} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
