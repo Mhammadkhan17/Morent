@@ -214,3 +214,7 @@ Production keeps Stripe webhooks pointed at `https://<domain>/api/v1/webhooks/st
 - `PRODUCT.md` — product purpose, personas, and operating constraints
 - `Changelog.md` — full session-by-session build log
 - `AGENTS.md` — agent working conventions, commands, and boundaries
+
+## License
+
+[MIT](LICENSE)
