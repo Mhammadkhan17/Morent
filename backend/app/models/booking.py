@@ -42,6 +42,7 @@ class Booking(SQLModel, table=True):
     agreed_to_marketing: bool = False
 
     status: str = Field(default="pending")
+    cancel_reason: str | None = None
     stripe_session_id: str | None = Field(default=None, unique=True, index=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -55,4 +56,28 @@ class Payment(SQLModel, table=True):
     amount_cents: int
     currency: str = "usd"
     status: str
+    # Last refund attempt outcome; money moved is tracked by refunded_cents.
+    refund_status: str = Field(default="none")  # none|pending|succeeded|failed
+    stripe_refund_id: str | None = None
+    refunded_cents: int = 0
+    # "stripe" = captured by Checkout; "credit" = created when a swap offer
+    # re-uses an existing payment (no second charge ever happens).
+    origin: str = Field(default="stripe")
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class SwapOffer(SQLModel, table=True):
+    """Admin-proposed replacement car after cancelling a paid booking.
+
+    One row per cancelled booking (unique); the customer accepts (a new
+    booking is created) or declines (full refund)."""
+
+    __tablename__ = "swap_offers"
+
+    id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
+    booking_id: str = Field(foreign_key="bookings.id", unique=True, index=True)
+    offered_car_id: str = Field(foreign_key="cars.id", index=True)
+    offered_total_cents: int
+    status: str = Field(default="offered")  # offered|accepted|declined|withdrawn
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    responded_at: datetime | None = None

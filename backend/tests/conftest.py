@@ -14,7 +14,7 @@ from app.core.config import settings
 from app.core.db import get_session
 from app.core.security import get_current_user
 from app.main import app
-from app.models import Booking, Car, UserRow
+from app.models import Booking, Car, Payment, UserRow
 from app.services.stripe_service import get_stripe_service
 
 TEST_USER = {
@@ -65,11 +65,36 @@ class FakeSessions:
         return s
 
 
+class FakeRefunds:
+    def __init__(self) -> None:
+        self._n = 0
+        self.created: list[tuple[dict, str]] = []
+        self.fail_next = False
+
+    async def create_async(self, params=None, options=None):
+        if self.fail_next:
+            self.fail_next = False
+            raise stripe.StripeError(message="refund failed (test)")
+        self._n += 1
+        key = (options or {}).get("idempotency_key", "")
+        self.created.append((params, key))
+        return FakeRefund(self._n, params or {})
+
+
+class FakeRefund:
+    def __init__(self, n: int, params: dict) -> None:
+        self.id = f"re_test_{n}"
+        self.status = "succeeded"
+        self.amount = params.get("amount", 0)
+        self.payment_intent = params.get("payment_intent")
+
+
 class FakeStripeService:
     """SDK-style fake: one method per operation, no network."""
 
     def __init__(self) -> None:
         self.sessions = FakeSessions()
+        self.refunds = FakeRefunds()
 
     async def create_checkout_session(self, params):
         return await self.sessions.create_async(params=params)
@@ -79,6 +104,11 @@ class FakeStripeService:
 
     async def retrieve_checkout_session(self, session_id):
         return await self.sessions.retrieve_async(session_id)
+
+    async def create_refund(self, params, *, idempotency_key):
+        return await self.refunds.create_async(
+            params=params, options={"idempotency_key": idempotency_key}
+        )
 
 
 @pytest_asyncio.fixture
@@ -157,6 +187,28 @@ async def seeded_car(db_session) -> Car:
     db_session.add(car)
     await db_session.commit()
     return car
+
+
+async def seed_payment(
+    db_session,
+    booking_id: str,
+    *,
+    amount_cents: int,
+    status: str = "succeeded",
+    payment_intent_id: str | None = "pi_test_1",
+    origin: str = "stripe",
+) -> Payment:
+    payment = Payment(
+        booking_id=booking_id,
+        stripe_payment_intent_id=payment_intent_id,
+        amount_cents=amount_cents,
+        currency="usd",
+        status=status,
+        origin=origin,
+    )
+    db_session.add(payment)
+    await db_session.commit()
+    return payment
 
 
 def future(days: int) -> str:

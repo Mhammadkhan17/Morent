@@ -31,6 +31,26 @@ class MeBookingCar(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class MePaymentInfo(BaseModel):
+    amount_cents: int = Field(alias="amountCents")
+    refunded_cents: int = Field(default=0, alias="refundedCents")
+    refund_status: str = Field(alias="refundStatus")
+    origin: str
+
+    model_config = {"populate_by_name": True}
+
+
+class MeSwapOffer(BaseModel):
+    id: str
+    status: str
+    offered_total_cents: int = Field(alias="offeredTotalCents")
+    original_total_cents: int = Field(alias="originalTotalCents")
+    created_at: datetime = Field(alias="createdAt")
+    car: MeBookingCar
+
+    model_config = {"populate_by_name": True}
+
+
 class MeBookingItem(BaseModel):
     id: str
     status: str
@@ -44,6 +64,9 @@ class MeBookingItem(BaseModel):
     total_cents: int = Field(alias="totalCents")
     currency: str
     unread_messages: int = Field(default=0, alias="unreadMessages")
+    cancel_reason: str | None = Field(default=None, alias="cancelReason")
+    payment: MePaymentInfo | None = None
+    swap_offer: MeSwapOffer | None = Field(default=None, alias="swapOffer")
     car: MeBookingCar
 
     model_config = {"populate_by_name": True}

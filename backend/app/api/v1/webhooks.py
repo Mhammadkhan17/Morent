@@ -40,6 +40,7 @@ _HANDLED_TYPES = {
     "checkout.session.async_payment_succeeded",
     "checkout.session.async_payment_failed",
     "checkout.session.expired",
+    "charge.refunded",
 }
 
 
@@ -128,6 +129,31 @@ async def _mark_event(session: AsyncSession, event_id: str, status: str) -> None
     await session.commit()
 
 
+async def _apply_charge_refunded(session: AsyncSession, obj) -> None:
+    """charge.refunded → payment row. Looks up by payment_intent (charge ids
+    are not checkout session ids). Unknown PI / credit payments: no-op."""
+    payment_intent = getattr(obj, "payment_intent", None) or (
+        obj.get("payment_intent") if isinstance(obj, dict) else None
+    )
+    if not payment_intent:
+        return
+    amount_refunded = getattr(obj, "amount_refunded", None)
+    if amount_refunded is None and isinstance(obj, dict):
+        amount_refunded = obj.get("amount_refunded")
+    if amount_refunded is None:
+        return
+    result = await session.exec(
+        select(Payment).where(Payment.stripe_payment_intent_id == str(payment_intent))
+    )
+    payment = result.first()
+    if payment is None:
+        return
+    payment.refunded_cents = int(amount_refunded)
+    payment.refund_status = "succeeded"
+    session.add(payment)
+    await session.commit()
+
+
 @webhooks_router.post("/stripe")
 async def stripe_webhook(request: Request, session: SessionDep) -> dict[str, str]:
     payload = await request.body()
@@ -150,6 +176,14 @@ async def stripe_webhook(request: Request, session: SessionDep) -> dict[str, str
 
     async with _processing_lock():
         if not await _claim_event(session, event_id, event_type):
+            return {"received": "true"}
+
+        if event_type == "charge.refunded":
+            # Reconcile refunds issued outside the app (Stripe dashboard) or
+            # confirm ours: absolute amount_refunded is the source of truth,
+            # never an increment (a duplicate event must not double-count).
+            await _apply_charge_refunded(session, obj)
+            await _mark_event(session, event_id, "processed")
             return {"received": "true"}
 
         session_id = obj["id"]

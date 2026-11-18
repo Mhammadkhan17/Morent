@@ -14,6 +14,14 @@ export interface AdminBooking {
   dropoffDate: string;
   totalCents: number;
   createdAt: string;
+  cancelReason?: string | null;
+  /** Payment row status, e.g. "succeeded" (null when never charged). */
+  paymentStatus?: string | null;
+  /** none | pending | succeeded | failed */
+  refundStatus?: string | null;
+  refundedCents?: number;
+  /** offered | accepted | declined | withdrawn (null when no offer). */
+  swapOfferStatus?: string | null;
 }
 
 export interface RecentActivityItem {
@@ -89,15 +97,19 @@ export interface Analytics {
 }
 
 /** Owner-facing actions per status — mirrors backend ALLOWED_TRANSITIONS,
- * minus webhook-only targets (failed/active-from-pending). */
+ * minus webhook-only targets (failed/active-from-pending) and minus
+ * "cancelled": cancellations go through POST …/cancel with a reason. */
 export const BOOKING_ACTIONS: Record<string, string[]> = {
-  pending: ["confirmed", "cancelled"],
-  confirmed: ["active", "completed", "cancelled"],
-  active: ["completed", "cancelled"],
+  pending: ["confirmed"],
+  confirmed: ["active", "completed"],
+  active: ["completed"],
   completed: [],
   failed: [],
   cancelled: [],
 };
+
+/** Statuses the cancel-with-reason dialog accepts. */
+export const CANCELABLE_STATUSES = new Set(["pending", "confirmed", "active"]);
 
 export const BOOKING_STATUSES = [
   "pending",
@@ -134,6 +146,22 @@ export const updateBookingStatus = (
   status: string
 ): Promise<AdminBooking> =>
   api.patch(`/admin/bookings/${encodeURIComponent(id)}`, { status });
+
+/** Cancel with a required reason; optionally offer a replacement car.
+ * Paid + no offer → full refund fires immediately (backend rule). */
+export const cancelBooking = (
+  id: string,
+  payload: { reason: string; offeredCarId?: string | null }
+): Promise<AdminBooking> =>
+  api.post(`/admin/bookings/${encodeURIComponent(id)}/cancel`, payload);
+
+/** Full refund of whatever is still held (also retries a failed refund). */
+export const refundBooking = (id: string): Promise<AdminBooking> =>
+  api.post(`/admin/bookings/${encodeURIComponent(id)}/refund`);
+
+/** Pull an open replacement offer back → full refund. */
+export const withdrawBookingOffer = (id: string): Promise<AdminBooking> =>
+  api.post(`/admin/bookings/${encodeURIComponent(id)}/offer/withdraw`);
 
 export const fetchAdminCars = (): Promise<AdminCar[]> =>
   api.get("/admin/cars");

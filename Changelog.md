@@ -988,3 +988,55 @@ vitest 22/22 · build; backend ruff · pytest 120.
 - Final cross-page sweep: no stale copy, color/radius drift, or primary-as-data
   left; every `LoadErrorCard` has an accurate title; pay button reads
   "Processing payment…". `npm run lint` and `npm run build` green.
+
+## 2026-11-17 — Refunds & replacement offers (admin cancel flow)
+
+Closes `plans/todo.md` §9 ("cancel = manual Stripe dashboard refund"). Decisions
+locked with the user: paid cancel with no offer → immediate full refund; the
+customer never pays more (replacement re-priced ≤ original, enforced at offer
+*and* accept time); no deadline — admin withdraw auto-refunds; standalone
+manual Refund button doubles as the retry path after a failed refund. Unpaid
+cancels expire the open checkout session (fixes a session-leak); mid-rental
+(`active`) cancels are reason-only.
+
+### Backend
+- Schema + migration `c7e2f4a91b05` (applied to Development): `Payment`
+  gains `refund_status` / `stripe_refund_id` / `refunded_cents` / `origin`
+  (stripe|credit), `Booking` gains `cancel_reason`, new `swap_offers` table
+  (`SwapOffer`: booking_id unique, offered car/total, status
+  offered|accepted|declined|withdrawn).
+- New `services/resolution.py`: cancel (required reason → owner thread message,
+  optional replacement offer, validations *before* any mutation), accept swap
+  (refunds the price difference, creates a new confirmed booking with a credit
+  Payment — never a second charge), decline (refund first; a failure keeps the
+  offer open for retry), withdraw, manual refund (409 after accept — the
+  remaining balance already became the replacement's credit). Deterministic
+  Stripe idempotency keys `refund:{booking}:{purpose}:{amount}`; failures
+  persist `refund_status="failed"` and commit for retry; SSE notifications
+  (`swap_offered`, `refund_completed`, `swap_withdrawn`, `booking_confirmed`,
+  `swap_accepted`, `swap_declined`).
+- Endpoints: `POST /admin/bookings/{id}/cancel|refund|offer/withdraw`,
+  `POST /me/bookings/{id}/swap/accept|decline`; `PATCH /admin/bookings/{id}`
+  now rejects `status="cancelled"` (409 → use the cancel endpoint). Admin list
+  and `GET /me/bookings` responses carry payment/refund/offer fields.
+- Webhook: `charge.refunded` reconciles `Payment.refunded_cents` with an
+  absolute set (duplicate events cannot double-count).
+- Tests: new `tests/test_refunds.py` (27 cases: cancel paths, R>P rejection,
+  overlap/price-change at accept, decline retry, withdraw, manual refund +
+  double-refund 409, unpaid session expiry, webhook, idempotency keys);
+  suite 121 → **148**, `ruff check` clean.
+
+### Frontend
+- Admin bookings: "Cancel…" dialog (required reason, optional replacement-car
+  select with $/day — offered only when paid and not mid-rental; unpaid copy
+  notes the session closes), Refund button (paid, refund `none`/`failed`),
+  Withdraw-offer button, inline refund/offer status (`Refunded $X`,
+  `Refund failed`, `Offer open` badge). `BOOKING_ACTIONS` no longer exposes a
+  direct `cancelled` PATCH (it 409s by design).
+- Customer bookings: pinned "Needs your decision" offer card (original vs
+  credited price with savings, Accept replacement / Request full refund),
+  refund-status lines, cancellation reason, "Replaced by …" badge;
+  `MeBooking` types catch up with the API; new `acceptSwap` /
+  `requestSwapRefund` helpers. New notification types ride the existing
+  type-agnostic bell + toasts (links already point at `/account/bookings`).
+- Gates: `npm run lint`, `npm test` (71), `npm run build` green.

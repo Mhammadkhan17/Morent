@@ -19,12 +19,25 @@ class AdminBookingItem(BaseModel):
     dropoff_date: date = Field(alias="dropoffDate")
     total_cents: int = Field(alias="totalCents")
     created_at: str = Field(alias="createdAt")
+    cancel_reason: str | None = Field(default=None, alias="cancelReason")
+    # Payment/refund visibility (None when no payment row exists yet).
+    payment_status: str | None = Field(default=None, alias="paymentStatus")
+    refund_status: str | None = Field(default=None, alias="refundStatus")
+    refunded_cents: int = Field(default=0, alias="refundedCents")
+    swap_offer_status: str | None = Field(default=None, alias="swapOfferStatus")
 
     model_config = {"populate_by_name": True}
 
 
 class StatusUpdateRequest(BaseModel):
     status: str
+
+
+class CancelBookingRequest(BaseModel):
+    reason: str = Field(min_length=1, max_length=2000)
+    offered_car_id: str | None = Field(default=None, alias="offeredCarId")
+
+    model_config = {"populate_by_name": True}
 
 
 class RecentActivityItem(BaseModel):

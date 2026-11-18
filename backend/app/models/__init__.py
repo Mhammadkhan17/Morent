@@ -1,5 +1,5 @@
 from app.models.auth_user import UserRow
-from app.models.booking import Booking, Payment
+from app.models.booking import Booking, Payment, SwapOffer
 from app.models.car import Car
 from app.models.customer import CustomerProfile
 from app.models.notification import Message, Notification
@@ -14,6 +14,7 @@ __all__ = [
     "Notification",
     "Payment",
     "PromoCode",
+    "SwapOffer",
     "UserRow",
     "WebhookEvent",
 ]

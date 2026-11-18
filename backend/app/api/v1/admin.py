@@ -9,7 +9,15 @@ from sqlalchemy import or_
 from sqlmodel import select
 
 from app.core.security import SessionDep, require_owner
-from app.models import Booking, Car, CustomerProfile, PromoCode, UserRow
+from app.models import (
+    Booking,
+    Car,
+    CustomerProfile,
+    Payment,
+    PromoCode,
+    SwapOffer,
+    UserRow,
+)
 from app.models.booking import BOOKING_ACTIVE_STATUSES
 from app.schemas.admin import (
     AdminBookingItem,
@@ -20,6 +28,7 @@ from app.schemas.admin import (
     AdminPromoRead,
     AdminPromoUpdate,
     AnalyticsResponse,
+    CancelBookingRequest,
     CarBookingsStat,
     CarUtilizationStat,
     CustomerDetail,
@@ -32,7 +41,9 @@ from app.schemas.admin import (
     TopPromoStat,
 )
 from app.schemas.cars import car_to_read
+from app.services import resolution
 from app.services.booking_status import IllegalTransition, transition
+from app.services.stripe_service import StripeService, get_stripe_service
 
 admin_router = APIRouter(
     prefix="/admin",
@@ -40,12 +51,18 @@ admin_router = APIRouter(
     dependencies=[Depends(require_owner)],
 )
 
+StripeDep = Annotated[StripeService, Depends(get_stripe_service)]
+
 REVENUE_STATUSES = ("confirmed", "active", "completed")
 UTILIZATION_STATUSES = ("active", "confirmed")
 
 
 def _item(
-    booking: Booking, car: Car | None, user: UserRow | None
+    booking: Booking,
+    car: Car | None,
+    user: UserRow | None,
+    payment: Payment | None = None,
+    offer: SwapOffer | None = None,
 ) -> AdminBookingItem:
     return AdminBookingItem(
         id=booking.id,
@@ -60,7 +77,34 @@ def _item(
         dropoffDate=booking.dropoff_date,
         totalCents=booking.total_cents,
         createdAt=booking.created_at.isoformat(),
+        cancelReason=booking.cancel_reason,
+        paymentStatus=payment.status if payment else None,
+        refundStatus=payment.refund_status if payment else None,
+        refundedCents=payment.refunded_cents if payment else 0,
+        swapOfferStatus=offer.status if offer else None,
     )
+
+
+async def _payment_map(session, booking_ids: list[str]) -> dict[str, Payment]:
+    if not booking_ids:
+        return {}
+    rows = (
+        await session.exec(
+            select(Payment).where(Payment.booking_id.in_(booking_ids))
+        )
+    ).all()
+    return {row.booking_id: row for row in rows}
+
+
+async def _offer_map(session, booking_ids: list[str]) -> dict[str, SwapOffer]:
+    if not booking_ids:
+        return {}
+    rows = (
+        await session.exec(
+            select(SwapOffer).where(SwapOffer.booking_id.in_(booking_ids))
+        )
+    ).all()
+    return {row.booking_id: row for row in rows}
 
 
 @admin_router.get("/overview")
@@ -146,7 +190,13 @@ async def list_bookings(
         )
     stmt = stmt.order_by(Booking.created_at.desc())
     rows = (await session.exec(stmt)).all()
-    return [_item(b, car, user) for b, car, user in rows]
+    ids = [b.id for b, _, _ in rows]
+    payments = await _payment_map(session, ids)
+    offers = await _offer_map(session, ids)
+    return [
+        _item(b, car, user, payments.get(b.id), offers.get(b.id))
+        for b, car, user in rows
+    ]
 
 
 @admin_router.patch("/bookings/{booking_id}")
@@ -155,6 +205,14 @@ async def patch_booking(
     payload: StatusUpdateRequest,
     session: SessionDep,
 ) -> AdminBookingItem:
+    if payload.status == "cancelled":
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Cancellations require a reason — use "
+                "POST /api/v1/admin/bookings/{id}/cancel"
+            ),
+        )
     booking = await session.get(Booking, booking_id)
     if booking is None:
         raise HTTPException(status_code=404, detail="Booking not found")
@@ -164,7 +222,68 @@ async def patch_booking(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     car = await session.get(Car, booking.car_id)
     user = await session.get(UserRow, booking.user_id)
-    return _item(booking, car, user)
+    payment = await resolution.get_payment(session, booking.id)
+    offer = await resolution.get_offer(session, booking.id)
+    return _item(booking, car, user, payment, offer)
+
+
+@admin_router.post("/bookings/{booking_id}/cancel")
+async def cancel_booking(
+    booking_id: str,
+    payload: CancelBookingRequest,
+    session: SessionDep,
+    stripe_service: StripeDep,
+) -> AdminBookingItem:
+    booking = await session.get(Booking, booking_id)
+    if booking is None:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    await resolution.cancel_booking(
+        session,
+        stripe_service,
+        booking,
+        reason=payload.reason,
+        offered_car_id=payload.offered_car_id,
+    )
+    await session.refresh(booking)
+    car = await session.get(Car, booking.car_id)
+    user = await session.get(UserRow, booking.user_id)
+    payment = await resolution.get_payment(session, booking.id)
+    offer = await resolution.get_offer(session, booking.id)
+    return _item(booking, car, user, payment, offer)
+
+
+@admin_router.post("/bookings/{booking_id}/refund")
+async def refund_booking(
+    booking_id: str,
+    session: SessionDep,
+    stripe_service: StripeDep,
+) -> AdminBookingItem:
+    booking = await session.get(Booking, booking_id)
+    if booking is None:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    await resolution.manual_refund(session, stripe_service, booking)
+    car = await session.get(Car, booking.car_id)
+    user = await session.get(UserRow, booking.user_id)
+    payment = await resolution.get_payment(session, booking.id)
+    offer = await resolution.get_offer(session, booking.id)
+    return _item(booking, car, user, payment, offer)
+
+
+@admin_router.post("/bookings/{booking_id}/offer/withdraw")
+async def withdraw_booking_offer(
+    booking_id: str,
+    session: SessionDep,
+    stripe_service: StripeDep,
+) -> AdminBookingItem:
+    booking = await session.get(Booking, booking_id)
+    if booking is None:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    await resolution.withdraw_offer(session, stripe_service, booking)
+    car = await session.get(Car, booking.car_id)
+    user = await session.get(UserRow, booking.user_id)
+    payment = await resolution.get_payment(session, booking.id)
+    offer = await resolution.get_offer(session, booking.id)
+    return _item(booking, car, user, payment, offer)
 
 
 def _admin_car(car: Car) -> AdminCarRead:

@@ -1,21 +1,36 @@
 from datetime import UTC, datetime
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import func, select
 
 from app.core.security import CurrentUserDep, SessionDep
-from app.models import Booking, Car, CustomerProfile, Message, Notification
+from app.models import (
+    Booking,
+    Car,
+    CustomerProfile,
+    Message,
+    Notification,
+    Payment,
+    SwapOffer,
+)
 from app.schemas.me import (
     MeBookingCar,
     MeBookingItem,
     MeBookingListResponse,
+    MePaymentInfo,
+    MeSwapOffer,
     NotificationItem,
     NotificationListResponse,
     ProfilePayload,
     ProfileResponse,
 )
+from app.services import resolution
+from app.services.stripe_service import StripeService, get_stripe_service
 
 me_router = APIRouter(prefix="/me", tags=["me"])
+
+StripeDep = Annotated[StripeService, Depends(get_stripe_service)]
 
 
 def _user_id(user: dict) -> str:
@@ -147,6 +162,33 @@ async def list_me_bookings(
                 )
             )
         ).one()
+        payment = (
+            await session.exec(
+                select(Payment).where(Payment.booking_id == booking.id)
+            )
+        ).first()
+        offer = (
+            await session.exec(
+                select(SwapOffer).where(SwapOffer.booking_id == booking.id)
+            )
+        ).first()
+        offer_item: MeSwapOffer | None = None
+        if offer is not None:
+            offered_car = await session.get(Car, offer.offered_car_id)
+            if offered_car is not None:
+                offer_item = MeSwapOffer(
+                    id=offer.id,
+                    status=offer.status,
+                    offeredTotalCents=offer.offered_total_cents,
+                    originalTotalCents=booking.total_cents,
+                    createdAt=offer.created_at,
+                    car=MeBookingCar(
+                        id=offered_car.id,
+                        name=offered_car.name,
+                        type=offered_car.type,
+                        imageUrl=offered_car.image_url,
+                    ),
+                )
         items.append(
             MeBookingItem(
                 id=booking.id,
@@ -161,12 +203,61 @@ async def list_me_bookings(
                 total_cents=booking.total_cents,
                 currency=booking.currency,
                 unread_messages=unread,
+                cancel_reason=booking.cancel_reason,
+                payment=(
+                    MePaymentInfo(
+                        amount_cents=payment.amount_cents,
+                        refunded_cents=payment.refunded_cents,
+                        refund_status=payment.refund_status,
+                        origin=payment.origin,
+                    )
+                    if payment
+                    else None
+                ),
+                swap_offer=offer_item,
                 car=MeBookingCar(
                     id=car.id, name=car.name, type=car.type, image_url=car.image_url
                 ),
             )
         )
     return MeBookingListResponse(bookings=items)
+
+
+async def _customer_booking(session, user_id: str, booking_id: str) -> Booking:
+    booking = await session.get(Booking, booking_id)
+    if booking is None or booking.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    return booking
+
+
+@me_router.post("/bookings/{booking_id}/swap/accept")
+async def accept_swap(
+    booking_id: str,
+    user: CurrentUserDep,
+    session: SessionDep,
+    stripe_service: StripeDep,
+) -> dict[str, str]:
+    user_id = _user_id(user)
+    booking = await _customer_booking(session, user_id, booking_id)
+    new_id = await resolution.accept_swap(
+        session, stripe_service, booking, user_id=user_id
+    )
+    return {"bookingId": new_id, "status": "accepted"}
+
+
+@me_router.post("/bookings/{booking_id}/swap/decline")
+async def decline_swap(
+    booking_id: str,
+    user: CurrentUserDep,
+    session: SessionDep,
+    stripe_service: StripeDep,
+) -> dict[str, str]:
+    user_id = _user_id(user)
+    booking = await _customer_booking(session, user_id, booking_id)
+    await resolution.decline_swap(
+        session, stripe_service, booking, user_id=user_id
+    )
+    return {"status": "refunded"}
 
 
 @me_router.get("/profile")

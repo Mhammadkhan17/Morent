@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { MessageSquare } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -15,10 +16,13 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -35,14 +39,19 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import { MonthGrid } from "@/components/calendar/MonthGrid";
 import { ThreadPanel } from "@/components/thread/ThreadPanel";
 import {
   BOOKING_ACTIONS,
   BOOKING_STATUSES,
+  CANCELABLE_STATUSES,
+  cancelBooking,
   fetchAdminBookings,
   fetchAdminCars,
+  refundBooking,
   updateBookingStatus,
+  withdrawBookingOffer,
   type AdminBooking,
   type AdminCar,
 } from "@/lib/admin-api";
@@ -50,6 +59,8 @@ import { formatCents } from "@/lib/cars-api";
 import { StatusBadge } from "../status-badge";
 
 const ALL = "all";
+/** Select sentinel: "no replacement offered" (Radix needs a real value). */
+const NO_OFFER = "__none__";
 
 const shortDate = (iso: string) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, {
@@ -84,6 +95,10 @@ function AdminBookingsInner() {
   const [threadId, setThreadId] = useState<string | null>(
     () => searchParams.get("thread")
   );
+  const [cancelTarget, setCancelTarget] = useState<AdminBooking | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelOfferCarId, setCancelOfferCarId] = useState(NO_OFFER);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -138,6 +153,65 @@ function AdminBookingsInner() {
       setBusyId(null);
     }
   };
+
+  const runRowAction = async (
+    booking: AdminBooking,
+    fn: () => Promise<unknown>,
+    fallback: string
+  ) => {
+    setBusyId(booking.id);
+    setError(null);
+    try {
+      await fn();
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : fallback);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const openCancel = (booking: AdminBooking) => {
+    setCancelTarget(booking);
+    setCancelReason("");
+    setCancelOfferCarId(NO_OFFER);
+    setCancelError(null);
+  };
+
+  const closeCancel = () => {
+    setCancelTarget(null);
+    setCancelError(null);
+  };
+
+  const submitCancel = async () => {
+    if (!cancelTarget) return;
+    const reason = cancelReason.trim();
+    if (!reason) {
+      setCancelError("A cancellation reason is required.");
+      return;
+    }
+    setBusyId(cancelTarget.id);
+    setCancelError(null);
+    try {
+      await cancelBooking(cancelTarget.id, {
+        reason,
+        offeredCarId:
+          cancelOfferCarId === NO_OFFER ? null : cancelOfferCarId,
+      });
+      closeCancel();
+      await load();
+    } catch (err) {
+      setCancelError(err instanceof Error ? err.message : "Cancel failed");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  // Replacement offers only exist on paid, non-mid-rental bookings.
+  const offerAvailable =
+    cancelTarget?.paymentStatus === "succeeded" &&
+    cancelTarget.status !== "active";
+  const offerCars = cars.filter((car) => car.status === "available");
 
   return (
     <div className="flex flex-col gap-6">
@@ -285,6 +359,26 @@ function AdminBookingsInner() {
                           </TableCell>
                           <TableCell>
                             <StatusBadge status={booking.status} />
+                            {booking.swapOfferStatus === "offered" && (
+                              <Badge
+                                variant="secondary"
+                                className="ml-1.5 align-middle"
+                              >
+                                Offer open
+                              </Badge>
+                            )}
+                            {booking.paymentStatus === "succeeded" &&
+                              booking.refundStatus === "succeeded" && (
+                                <span className="mt-1 block text-xs text-muted-foreground">
+                                  Refunded{" "}
+                                  {formatCents(booking.refundedCents ?? 0)}
+                                </span>
+                              )}
+                            {booking.refundStatus === "failed" && (
+                              <span className="mt-1 block text-xs text-destructive">
+                                Refund failed
+                              </span>
+                            )}
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-1.5">
@@ -303,17 +397,57 @@ function AdminBookingsInner() {
                                 <Button
                                   key={next}
                                   size="sm"
-                                  variant={
-                                    next === "cancelled"
-                                      ? "outline"
-                                      : "secondary"
-                                  }
+                                  variant="secondary"
                                   disabled={busyId === booking.id}
                                   onClick={() => void act(booking, next)}
                                 >
                                   {actionLabel(next)}
                                 </Button>
                               ))}
+                              {CANCELABLE_STATUSES.has(booking.status) && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={busyId === booking.id}
+                                  onClick={() => openCancel(booking)}
+                                >
+                                  Cancel…
+                                </Button>
+                              )}
+                              {booking.swapOfferStatus === "offered" && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={busyId === booking.id}
+                                  onClick={() =>
+                                    void runRowAction(
+                                      booking,
+                                      () => withdrawBookingOffer(booking.id),
+                                      "Withdraw failed"
+                                    )
+                                  }
+                                >
+                                  Withdraw offer
+                                </Button>
+                              )}
+                              {booking.paymentStatus === "succeeded" &&
+                                (booking.refundStatus === "none" ||
+                                  booking.refundStatus === "failed") && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={busyId === booking.id}
+                                    onClick={() =>
+                                      void runRowAction(
+                                        booking,
+                                        () => refundBooking(booking.id),
+                                        "Refund failed"
+                                      )
+                                    }
+                                  >
+                                    Refund
+                                  </Button>
+                                )}
                             </div>
                           </TableCell>
                         </TableRow>
@@ -340,6 +474,109 @@ function AdminBookingsInner() {
             </DialogTitle>
           </DialogHeader>
           {threadId && <ThreadPanel key={threadId} bookingId={threadId} />}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={cancelTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) closeCancel();
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Cancel booking?</DialogTitle>
+            <DialogDescription>
+              {cancelTarget
+                ? `${cancelTarget.carName} for ${cancelTarget.customerName}, ${shortDate(cancelTarget.pickupDate)} → ${shortDate(cancelTarget.dropoffDate)}.`
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+
+          {cancelError && (
+            <Alert variant="destructive">
+              <AlertTitle>Cancel failed</AlertTitle>
+              <AlertDescription>{cancelError}</AlertDescription>
+            </Alert>
+          )}
+
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="cancel-reason">Reason (required)</Label>
+              <Textarea
+                id="cancel-reason"
+                value={cancelReason}
+                onChange={(event) => setCancelReason(event.target.value)}
+                rows={3}
+                maxLength={2000}
+                placeholder="e.g. Vehicle unavailable for these dates"
+                disabled={busyId === cancelTarget?.id}
+              />
+              <p className="text-xs text-muted-foreground">
+                Sent to the customer in their booking thread.
+              </p>
+            </div>
+
+            {offerAvailable && (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="cancel-offer">Replacement offer (optional)</Label>
+                <Select
+                  value={cancelOfferCarId}
+                  onValueChange={setCancelOfferCarId}
+                  disabled={busyId === cancelTarget?.id}
+                >
+                  <SelectTrigger id="cancel-offer" aria-label="Replacement car">
+                    <SelectValue placeholder="No replacement" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_OFFER}>
+                      None — refund instead
+                    </SelectItem>
+                    {offerCars.map((car) => (
+                      <SelectItem key={car.id} value={car.id}>
+                        {car.name} · {formatCents(car.pricePerDay)}/day
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  The customer can accept the replacement (credited — they never
+                  pay more) or request a full refund. Without an offer, a full
+                  refund is issued immediately.
+                </p>
+              </div>
+            )}
+
+            {cancelTarget?.paymentStatus !== "succeeded" &&
+              cancelTarget?.status === "pending" && (
+                <p className="text-xs text-muted-foreground">
+                  No charge was made — cancelling closes the payment session.
+                </p>
+              )}
+            {cancelTarget?.status === "active" && (
+              <p className="text-xs text-muted-foreground">
+                Mid-rental: record the reason now; use Refund once the car is
+                back.
+              </p>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={closeCancel}
+              disabled={busyId === cancelTarget?.id}
+            >
+              Keep booking
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => void submitCancel()}
+              disabled={busyId === cancelTarget?.id || !cancelReason.trim()}
+            >
+              {busyId === cancelTarget?.id ? "Cancelling…" : "Cancel booking"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

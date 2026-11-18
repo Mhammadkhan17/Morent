@@ -23,6 +23,19 @@ class StripeService:
         """Close an open session so it can never be paid (superseded booking)."""
         return await self.client.v1.checkout.sessions.expire_async(session_id)
 
+    async def create_refund(
+        self, params: dict[str, Any], *, idempotency_key: str
+    ) -> Any:  # stripe.Refund
+        """Refund a PaymentIntent (full or partial by amount).
+
+        The idempotency key makes retries safe: Stripe replays the original
+        result instead of issuing a second refund. Keys are deterministic
+        (booking + purpose + amount) so a double-click cannot double-refund;
+        the DB refunded_cents guard blocks later attempts once settled."""
+        return await self.client.v1.refunds.create_async(
+            params=params, options={"idempotency_key": idempotency_key}
+        )
+
 
 def get_stripe_service() -> StripeService:
     return StripeService(settings.stripe_secret_key)
