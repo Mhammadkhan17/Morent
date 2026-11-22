@@ -9,6 +9,7 @@ Create Date: 2026-11-09 12:00:00.000000
 from collections.abc import Sequence
 
 import sqlalchemy as sa
+from sqlmodel.sql.sqltypes import AutoString, UTCDateTime
 
 from alembic import op
 
@@ -20,15 +21,15 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.add_column("bookings", sa.Column("cancel_reason", sa.Text(), nullable=True))
+    op.add_column("bookings", sa.Column("cancel_reason", AutoString(), nullable=True))
     op.add_column(
         "payments",
         sa.Column(
-            "refund_status", sa.Text(), nullable=False, server_default="none"
+            "refund_status", AutoString(), nullable=False, server_default="none"
         ),
     )
     op.add_column(
-        "payments", sa.Column("stripe_refund_id", sa.Text(), nullable=True)
+        "payments", sa.Column("stripe_refund_id", AutoString(), nullable=True)
     )
     op.add_column(
         "payments",
@@ -36,17 +37,17 @@ def upgrade() -> None:
     )
     op.add_column(
         "payments",
-        sa.Column("origin", sa.Text(), nullable=False, server_default="stripe"),
+        sa.Column("origin", AutoString(), nullable=False, server_default="stripe"),
     )
     op.create_table(
         "swap_offers",
-        sa.Column("id", sa.Text(), nullable=False),
-        sa.Column("booking_id", sa.Text(), nullable=False),
-        sa.Column("offered_car_id", sa.Text(), nullable=False),
+        sa.Column("id", AutoString(), nullable=False),
+        sa.Column("booking_id", AutoString(), nullable=False),
+        sa.Column("offered_car_id", AutoString(), nullable=False),
         sa.Column("offered_total_cents", sa.Integer(), nullable=False),
-        sa.Column("status", sa.Text(), nullable=False),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("responded_at", sa.DateTime(), nullable=True),
+        sa.Column("status", AutoString(), nullable=False),
+        sa.Column("created_at", UTCDateTime(), nullable=False),
+        sa.Column("responded_at", UTCDateTime(), nullable=True),
         sa.ForeignKeyConstraint(["booking_id"], ["bookings.id"]),
         sa.ForeignKeyConstraint(["offered_car_id"], ["cars.id"]),
         sa.PrimaryKeyConstraint("id"),
